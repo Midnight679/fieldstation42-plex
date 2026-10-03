@@ -19,7 +19,7 @@ bash install/install_services.sh
 
 The installer will prompt you to select which services to enable:
 - **Field Player** (fs42) - Core service, enabled by default
-- **Web Console** (fs42-web) - Web interface; enabled by default
+- **Web Console** (fs42-web) - Optional standalone web interface. Not needed with the Field Player, which already serves the web console on port 4242 (running both makes them fight over the port)
 - **Cable Box** (fs42-cable-box) - Optional, for cable box interface
 - **Remote Controller** (fs42-remote-controller) - Optional
 - **OSD** (fs42-osd) - Optional, on-screen display overlay
@@ -39,14 +39,14 @@ EOT
 chmod 600 ~/.config/fs42/plex.env
 ```
 
-Restart after changing it: `systemctl --user restart fs42 fs42-web`.
+Restart after changing it: `systemctl --user restart fs42`.
 
 ## Minimal desktop on a headless install (e.g. Ubuntu Server)
 
 The player needs an X display (`DISPLAY=:0`). The services do not need a full desktop environment, only a running X server: they wait up to two minutes for it at boot. On a server install with no desktop, a small auto-login X session is enough:
 
 ```bash
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xorg openbox lightdm alsa-utils
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xorg openbox lightdm lightdm-gtk-greeter alsa-utils
 sudo usermod -aG video,render,audio "$USER"
 sudo mkdir -p /etc/lightdm/lightdm.conf.d
 printf '[Seat:*]
@@ -109,7 +109,7 @@ journalctl --user -u fs42-* -f
 ### Individual Services
 
 - `fs42` - Field Player (main content playback)
-- `fs42-web` - Web console and catalog/schedule builder
+- `fs42-web` - Standalone web console (only if you are not running `fs42`)
 - `fs42-cable-box` - Cable Box interface
 - `fs42-remote-controller` - Remote Controller
 - `fs42-osd` - On-Screen Display (waits 30s before starting)

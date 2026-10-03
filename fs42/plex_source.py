@@ -2,14 +2,16 @@
 
 Catalog entries for Plex items are stored with a pseudo path of the form
 ``plex://<ratingKey>/<Display Name>.<ext>`` so the Plex token never lands in the
-catalog database. The path is resolved to a real direct-play URL at playback time.
+catalog database. The path is resolved to a real playback URL at playback time: a direct-play URL when the file is
+something a small player can decode, or a live Plex transcode (e.g. 4K down to 1080p H.264) when not.
 """
 
 import logging
 import os
 import re
 import threading
-from urllib.parse import quote
+import uuid
+from urllib.parse import quote, urlencode
 
 import requests
 
@@ -28,10 +30,15 @@ class PlexClient:
     _instance = None
     _lock = threading.Lock()
 
-    def __init__(self, url, token, timeout=15):
+    def __init__(self, url, token, timeout=15, transcode="off", max_height=1080, max_bitrate=10000):
         self.url = url.rstrip("/")
         self.token = token
         self.timeout = timeout
+        # transcode: "off" never transcodes, "auto" only when no playable version exists, "always" every time
+        self.transcode = (transcode or "off").lower()
+        self.max_height = int(max_height)
+        self.max_bitrate = int(max_bitrate)  # kbps: direct-play ceiling and transcode target
+        self._transcode_session = None
         self._l = logging.getLogger("PLEX")
         self._session = requests.Session()
         self._session.headers.update({"Accept": "application/json", "X-Plex-Token": token})
@@ -53,7 +60,14 @@ class PlexClient:
                         "Plex is not configured. Set PLEX_URL and PLEX_TOKEN, or add a \"plex\" block with "
                         "\"url\" and \"token\" to confs/main_config.json"
                     )
-                cls._instance = cls(url, token, conf.get("timeout", 15))
+                cls._instance = cls(
+                    url,
+                    token,
+                    conf.get("timeout", 15),
+                    transcode=os.environ.get("PLEX_TRANSCODE") or conf.get("transcode", "off"),
+                    max_height=os.environ.get("PLEX_MAX_HEIGHT") or conf.get("max_height", 1080),
+                    max_bitrate=os.environ.get("PLEX_MAX_BITRATE") or conf.get("max_bitrate", 10000),
+                )
             return cls._instance
 
     # ---- low level -------------------------------------------------------
@@ -169,25 +183,103 @@ class PlexClient:
 
     # ---- playback side ---------------------------------------------------
 
-    def resolve(self, path):
-        """Turn a plex:// pseudo path into a direct-play URL (token included)."""
-        if path in self._url_cache:
-            return self._url_cache[path]
+    def _media_versions(self, rating_key):
+        meta = self._get(f"/library/metadata/{rating_key}").get("Metadata", [])
+        try:
+            versions = [m for m in meta[0]["Media"] if m.get("Part")]
+        except (IndexError, KeyError):
+            versions = []
+        if not versions:
+            raise ValueError(f"Plex item {rating_key} has no playable media part")
+        return versions
+
+    def _playable(self, media):
+        """True for versions a small player can decode directly: H.264 within the height and bitrate limits."""
+        codec = (media.get("videoCodec") or "").lower()
+        return (
+            codec in ("h264", "avc")
+            and (media.get("height") or 0) <= self.max_height
+            and (media.get("bitrate") or 0) <= self.max_bitrate
+        )
+
+    def _direct_url(self, media):
+        return f"{self.url}{quote(media['Part'][0]['key'])}?download=0&X-Plex-Token={self.token}"
+
+    def stop_transcode(self):
+        """Best effort: tell Plex to end the previous transcode session so channel flipping does not pile them up."""
+        session, self._transcode_session = self._transcode_session, None
+        if session:
+            try:
+                self._session.get(f"{self.url}/video/:/transcode/universal/stop", params={"session": session}, timeout=5)
+            except requests.RequestException:
+                pass
+
+    def _transcode_url(self, rating_key, offset):
+        self.stop_transcode()
+        self._transcode_session = uuid.uuid4().hex
+        width = int(self.max_height * 16 / 9)
+        query = urlencode({
+            "path": f"/library/metadata/{rating_key}",
+            "mediaIndex": 0,
+            "partIndex": 0,
+            "protocol": "hls",
+            "fastSeek": 1,
+            "directPlay": 0,
+            "directStream": 1,
+            "offset": int(offset),
+            "maxVideoBitrate": self.max_bitrate,
+            "videoResolution": f"{width}x{self.max_height}",
+            "session": self._transcode_session,
+            "X-Plex-Session-Identifier": self._transcode_session,
+            "X-Plex-Client-Identifier": "fieldstation42",
+            "X-Plex-Product": "FieldStation42",
+            "X-Plex-Platform": "Linux",
+            "X-Plex-Token": self.token,
+        })
+        return f"{self.url}/video/:/transcode/universal/start.m3u8?{query}"
+
+    def playback_target(self, path, offset=0):
+        """Return (location, consumed_offset) for a plex:// path.
+
+        consumed_offset is how many seconds of the requested offset the location already skips, because a
+        live transcode starts at the requested point. The caller seeks only the remainder (zero for transcodes).
+        """
         m = _PATH_RE.match(path)
         if not m:
             raise ValueError(f"Not a plex path: {path}")
-        meta = self._get(f"/library/metadata/{m.group(1)}").get("Metadata", [])
-        try:
-            part_key = meta[0]["Media"][0]["Part"][0]["key"]
-        except (IndexError, KeyError):
-            raise ValueError(f"Plex item {m.group(1)} has no playable media part")
-        url = f"{self.url}{quote(part_key)}?download=0&X-Plex-Token={self.token}"
-        self._url_cache[path] = url
-        return url
+        rating_key = m.group(1)
+        versions = self._media_versions(rating_key)
+        playable = sorted(
+            (v for v in versions if self._playable(v)),
+            key=lambda v: (-(v.get("height") or 0), v.get("bitrate") or 0),
+        )
+
+        if self.transcode != "always" and (playable or self.transcode == "off"):
+            chosen = playable[0] if playable else versions[0]
+            self._l.info(
+                f"Plex item {rating_key}: direct play {chosen.get('videoCodec')} {chosen.get('width')}x{chosen.get('height')}"
+            )
+            return self._direct_url(chosen), 0
+
+        top = versions[0]
+        self._l.info(
+            f"Plex item {rating_key}: transcoding {top.get('videoCodec')} {top.get('width')}x{top.get('height')} "
+            f"to <= {self.max_height}p at {self.max_bitrate} kbps, starting at {int(offset)}s"
+        )
+        return self._transcode_url(rating_key, offset), int(offset)
+
+    def resolve(self, path):
+        """Direct-play URL for a plex:// path (the best playable version, token included)."""
+        m = _PATH_RE.match(path)
+        if not m:
+            raise ValueError(f"Not a plex path: {path}")
+        versions = self._media_versions(m.group(1))
+        playable = [v for v in versions if self._playable(v)]
+        return self._direct_url(playable[0] if playable else versions[0])
 
 
-def resolve_for_playback(path):
-    """Return a playable location for path: Plex pseudo paths are resolved, anything else passes through."""
+def resolve_for_playback(path, offset=0):
+    """Return (location, consumed_offset) for playback. Plex pseudo paths are resolved; anything else passes through."""
     if is_plex_path(path):
-        return PlexClient.get().resolve(path)
-    return path
+        return PlexClient.get().playback_target(path, offset)
+    return path, 0

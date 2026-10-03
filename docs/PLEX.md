@@ -84,3 +84,27 @@ python3 tools/plex_inventory.py > plex_inventory.txt
 set -a; source ~/.config/fs42/plex.env; set +a
 python3 tools/plex_check_station.py confs/mychannel.json
 ```
+
+## Playing 4K and HEVC on a small device (Raspberry Pi 4)
+
+A Pi 4 can hardware-decode H.264 up to 1080p, but not 4K or most HEVC (H.265). When a Plex item has
+no version the player can handle, the fork can ask Plex to convert it on the fly to a 1080p H.264 stream,
+starting at the point in the schedule that is currently on air. Plex does the heavy lifting on the server.
+
+Set these as environment variables (for example in `~/.config/fs42/plex.env`), or as keys of the `plex`
+block in `confs/main_config.json` (`transcode`, `max_height`, `max_bitrate`):
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `PLEX_TRANSCODE` | `off` | `off` never transcodes, `auto` only when no playable version exists, `always` every time |
+| `PLEX_MAX_HEIGHT` | `1080` | Tallest picture the player can handle, and the transcode size |
+| `PLEX_MAX_BITRATE` | `10000` | Highest direct-play bitrate in kbps, and the transcode target |
+
+Whatever the mode, if an item has several versions (for example a 4K and a 1080p copy), the best
+version within these limits is chosen for direct play. Transcodes take a few seconds to start, so also set
+`"video_seek_timeout": 30` in `confs/main_config.json`. Plex needs enough CPU or GPU to transcode in real
+time. The fork asks Plex to end the previous transcode when the next one starts, so changing channels does
+not leave sessions running.
+
+To see how much of your library needs this, run `tools/plex_media_report.py`. It prints the codec and
+resolution mix of each library and lists the heaviest files, without playing anything.

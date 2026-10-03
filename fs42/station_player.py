@@ -592,7 +592,8 @@ class StationPlayer:
                 # self.mpv.vf = "lavfi=[]"
                 self._l.info(f"playing {file_path}")
                 self.mpv.command("playlist-clear")
-                self.mpv.play(resolve_for_playback(file_path))
+                play_target, consumed_offset = resolve_for_playback(file_path, offset_seconds or 0)
+                self.mpv.play(play_target)
                 
 
                 timeout_seconds = StationManager().server_conf.get("video_seek_timeout", 10)
@@ -622,8 +623,10 @@ class StationPlayer:
                         time.sleep(0.05)
 
                 # Perform seek if needed (before showing overlay)
-                if not is_stream and offset_seconds is not None and offset_seconds > 0:
-                    self._seek_with_verify(file_path, offset_seconds, timeout_seconds)
+                # a live transcode (Plex) already starts at the requested offset, so only seek the remainder
+                seek_to = (offset_seconds or 0) - consumed_offset
+                if not is_stream and seek_to > 0:
+                    self._seek_with_verify(file_path, seek_to, timeout_seconds)
 
                 # Show Now Playing overlay for audio feature files
                 self._l.info(f"Media type: {media_type}, Content type: {content_type}")

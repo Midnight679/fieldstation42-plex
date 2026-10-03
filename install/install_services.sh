@@ -69,9 +69,9 @@ fi
 
 # Web Console
 echo ""
-echo -e "${BLUE}Web Console${NC} - Web interface and catalog/schedule builder"
-read -p "Enable fs42-web.service? (Y/n): " enable_web
-if [[ ! "$enable_web" =~ ^[Nn]$ ]]; then
+echo -e "${BLUE}Web Console${NC} - Standalone web interface (NOT needed if you enable the Field Player: it already serves the web console on port 4242)"
+read -p "Enable fs42-web.service? (y/N): " enable_web
+if [[ "$enable_web" =~ ^[Yy]$ ]]; then
     SERVICES_TO_ENABLE+=("fs42-web.service")
 fi
 
