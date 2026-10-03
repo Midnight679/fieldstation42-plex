@@ -5,7 +5,7 @@ Instead of scanning folders, a station can build its catalog from your Plex serv
 ## Server config (`confs/main_config.json`)
 
 ```json
-{ "plex": { "url": "http://192.168.1.50:32400", "token": "YOUR_PLEX_TOKEN" } }
+{ "plex": { "url": "http://<plex-server-ip>:32400", "token": "YOUR_PLEX_TOKEN" } }
 ```
 
 `PLEX_URL` / `PLEX_TOKEN` environment variables override the file (preferred, so the token stays out of config files).

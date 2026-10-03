@@ -186,3 +186,10 @@ hls/
 web_urls/
 
 .fuse_hidden*
+
+# install-specific content: channel art, guide promo text, credentials (never commit)
+art/
+channel_art/
+guide_messages.json
+*.env
+*.deny-terms
