@@ -7,6 +7,7 @@ Requires=graphical-session.target
 Type=simple
 WorkingDirectory=__INSTALL_DIR__
 Environment="DISPLAY=:0"
+EnvironmentFile=-%h/.config/fs42/plex.env
 ExecStartPre=/bin/bash -c 'if [ ! -f /tmp/fs42-started ]; then sleep 5; touch /tmp/fs42-started; fi'
 ExecStart=__INSTALL_DIR__/env/bin/python3 field_player.py
 Restart=on-failure

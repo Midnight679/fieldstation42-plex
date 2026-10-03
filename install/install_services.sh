@@ -67,6 +67,14 @@ if [[ ! "$enable_fp" =~ ^[Nn]$ ]]; then
     SERVICES_TO_ENABLE+=("fs42.service")
 fi
 
+# Web Console
+echo ""
+echo -e "${BLUE}Web Console${NC} - Web interface and catalog/schedule builder"
+read -p "Enable fs42-web.service? (Y/n): " enable_web
+if [[ ! "$enable_web" =~ ^[Nn]$ ]]; then
+    SERVICES_TO_ENABLE+=("fs42-web.service")
+fi
+
 # Cable Box
 echo ""
 echo -e "${BLUE}Cable Box${NC} - Cable box interface"
@@ -89,6 +97,16 @@ echo -e "${BLUE}On-Screen Display${NC} - Visual overlay (starts 30s after login)
 read -p "Enable fs42-osd.service? (y/N): " enable_osd
 if [[ "$enable_osd" =~ ^[Yy]$ ]]; then
     SERVICES_TO_ENABLE+=("fs42-osd.service")
+fi
+
+# Plex credentials file (read by fs42 and fs42-web, kept outside the repo)
+PLEX_ENV="$HOME/.config/fs42/plex.env"
+if [ ! -f "$PLEX_ENV" ]; then
+    echo ""
+    echo -e "${INFO} Optional: to use a Plex server, create ${GREEN}$PLEX_ENV${NC} containing:"
+    echo -e "    PLEX_URL=http://<plex-server-ip>:32400"
+    echo -e "    PLEX_TOKEN=<your token>"
+    echo -e "    then run: chmod 600 $PLEX_ENV"
 fi
 
 # Enable selected services

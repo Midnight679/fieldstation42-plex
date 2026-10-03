@@ -1,0 +1,17 @@
+[Unit]
+Description=FieldStation42 Web Console
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__INSTALL_DIR__
+EnvironmentFile=-%h/.config/fs42/plex.env
+ExecStart=__INSTALL_DIR__/env/bin/python3 station_42.py --server
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

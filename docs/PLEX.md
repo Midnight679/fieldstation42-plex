@@ -10,6 +10,8 @@ Instead of scanning folders, a station can build its catalog from your Plex serv
 
 `PLEX_URL` / `PLEX_TOKEN` environment variables override the file (preferred, so the token stays out of config files).
 
+If you run FieldStation42 as systemd services, put them in `~/.config/fs42/plex.env` instead; see [install/systemd/README.md](../install/systemd/README.md).
+
 ## Station config
 
 Add a `plex_sources` map. Each key is a **tag** (the same tag you use in the weekly schedule slots, or a `commercial_dir` / `bump_dir` value); each value says what in Plex that tag means:
