@@ -11,6 +11,7 @@ import random
 import logging
 import time
 from python_mpv_jsonipc import MPV
+from fs42.plex_source import is_plex_path, resolve_for_playback
 
 from fs42.guide_tk import guide_channel_runner, GuideCommands
 from fs42.autobump_agent import AutoBumpAgent
@@ -526,7 +527,7 @@ class StationPlayer:
 
     def play_file(self, file_path, file_duration=None, offset_seconds=None, is_stream=False, title="Unknown", content_type=None, media_type=None):
         try:
-            if os.path.exists(file_path) or is_stream or AutoBumpAgent.is_autobump_url(file_path):
+            if os.path.exists(file_path) or is_stream or is_plex_path(file_path) or AutoBumpAgent.is_autobump_url(file_path):
                 self._l.debug(f"%%%Attempting to play {file_path}")
                 self.current_playing_file_path = file_path
 
@@ -591,7 +592,7 @@ class StationPlayer:
                 # self.mpv.vf = "lavfi=[]"
                 self._l.info(f"playing {file_path}")
                 self.mpv.command("playlist-clear")
-                self.mpv.play(file_path)
+                self.mpv.play(resolve_for_playback(file_path))
                 
 
                 timeout_seconds = StationManager().server_conf.get("video_seek_timeout", 10)

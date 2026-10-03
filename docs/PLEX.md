@@ -1,0 +1,51 @@
+# Plex content source
+
+Instead of scanning folders, a station can build its catalog from your Plex server and stream items directly to mpv.
+
+## Server config (`confs/main_config.json`)
+
+```json
+{ "plex": { "url": "http://192.168.1.50:32400", "token": "YOUR_PLEX_TOKEN" } }
+```
+
+`PLEX_URL` / `PLEX_TOKEN` environment variables override the file (preferred, so the token stays out of config files).
+
+## Station config
+
+Add a `plex_sources` map. Each key is a **tag** (the same tag you use in the weekly schedule slots, or a `commercial_dir` / `bump_dir` value); each value says what in Plex that tag means:
+
+```json
+"plex_sources": {
+  "Seinfeld":    { "library": "TV Shows", "show": "Seinfeld" },
+  "80sAction":   { "library": "Movies",   "collection": "80s Action" }
+}
+```
+
+Supported selectors: `show`, `collection`, `label`, `genre`, or just `library` for everything in it. Tags that are not in `plex_sources` are scanned from `content_dir` as usual, so you can mix local and Plex content.
+
+## How it works
+
+- Durations come from Plex, so no `ffprobe` pass is needed.
+- The catalog stores `plex://<ratingKey>/<name>.mkv` paths; the real direct-play URL (with token) is resolved at playback time.
+- Rebuild the catalog after changing Plex content, as with local folders.
+- Commercials and bumps stay local. Leave them out of `plex_sources` and they are scanned from folders under `content_dir` exactly as upstream does.
+
+## Recommended layout: Plex shows, local commercials and bumps
+
+```json
+{"station_conf": {
+  "network_name": "plexTV",
+  "channel_number": 2,
+  "schedule_increment": 30,
+  "break_strategy": "end",
+  "content_dir": "catalog/plexTV",
+  "commercial_dir": "commercial",
+  "bump_dir": "bump",
+  "plex_sources": {
+    "Seinfeld": { "library": "TV Shows", "show": "Seinfeld" }
+  },
+  "monday": { "8": { "tags": "Seinfeld", "title": "Seinfeld" } }
+}}
+```
+
+Put commercial clips in `catalog/plexTV/commercial/` and bumps in `catalog/plexTV/bump/` on the box. `content_dir` is still required because those folders are relative to it, but it doesn't need a `Seinfeld` folder. (Keep the `clip_shows`, sign-off and off-air settings from the upstream examples as needed.)

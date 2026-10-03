@@ -14,6 +14,7 @@ from fs42.media_processor import MediaProcessor
 from fs42.sequence_api import SequenceAPI
 from fs42.autobump_agent import AutoBumpAgent
 from fs42.slot_reader import SlotReader
+from fs42.plex_source import PlexClient
 
 
 
@@ -371,6 +372,12 @@ class ShowCatalog:
         if not tag:
             self._l.debug("Skipping _scan_directory call with empty tag - check commercial_dir or clip_shows config")
             return 0
+        plex_spec = self.config.get("plex_sources", {}).get(tag)
+        if plex_spec and tag not in self.clip_index:
+            self._l.info(f"Fetching media for tag={tag} from Plex: {plex_spec}")
+            entries = PlexClient.get().build_entries(plex_spec, tag, content_type=content_type)
+            self.clip_index[tag] = entries
+            return len(entries)
         if tag not in self.clip_index:
             self.clip_index[tag] = []
             media_filter = self.config.get("media_filter", "video")

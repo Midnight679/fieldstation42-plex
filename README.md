@@ -21,6 +21,8 @@ Full documentation, installation guide, and channel configuration walkthroughs a
 
 **[fieldstation42.com](https://fieldstation42.com)**
 
+This fork can pull show and movie content from a Plex server instead of local folders: see [docs/PLEX.md](docs/PLEX.md).
+
 
 ## Quick Start
 

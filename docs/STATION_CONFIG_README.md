@@ -267,6 +267,12 @@ Explicit shuffle playlist (plays files in random order, looping indefinitely):
 }
 ```
 
+### Plex Content Source
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `plex_sources` | object | Maps a tag to a Plex query (`library` plus `show`, `collection`, `label` or `genre`). Tags not listed are scanned from `content_dir`. Requires the `plex` block in the main config. See [PLEX.md](PLEX.md) |
+
 ### Streaming Network Properties
 
 | Property | Type | Description |

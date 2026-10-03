@@ -163,6 +163,7 @@ class StationManager(object):
                     "parental_controls_pin",
                     "parental_controls_theme",
                     "custom_holidays",
+                    "plex",
                 ]
 
                 for key in to_check:
