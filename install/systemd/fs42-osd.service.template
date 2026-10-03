@@ -1,13 +1,13 @@
 [Unit]
 Description=FieldStation42 On-Screen Display
-After=graphical-session.target fs42.service
-Requires=graphical-session.target
+After=fs42.service
 PartOf=fs42.service
 
 [Service]
 Type=simple
 WorkingDirectory=__INSTALL_DIR__
 Environment="DISPLAY=:0"
+ExecStartPre=/usr/bin/timeout 120 /bin/bash -c 'until [ -S /tmp/.X11-unix/X0 ]; do sleep 1; done'
 ExecStartPre=/bin/sleep 10
 ExecStart=__INSTALL_DIR__/env/bin/python3 fs42/osd/main.py
 Restart=always

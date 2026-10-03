@@ -41,6 +41,29 @@ chmod 600 ~/.config/fs42/plex.env
 
 Restart after changing it: `systemctl --user restart fs42 fs42-web`.
 
+## Minimal desktop on a headless install (e.g. Ubuntu Server)
+
+The player needs an X display (`DISPLAY=:0`). The services do not need a full desktop environment, only a running X server: they wait up to two minutes for it at boot. On a server install with no desktop, a small auto-login X session is enough:
+
+```bash
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xorg openbox lightdm alsa-utils
+sudo usermod -aG video,render,audio "$USER"
+sudo mkdir -p /etc/lightdm/lightdm.conf.d
+printf '[Seat:*]
+autologin-user=%s
+autologin-session=openbox
+' "$USER" | sudo tee /etc/lightdm/lightdm.conf.d/50-fs42-autologin.conf
+mkdir -p ~/.config/openbox
+printf 'xset s off
+xset -dpms
+xset s noblank
+' > ~/.config/openbox/autostart
+sudo systemctl set-default graphical.target
+sudo reboot
+```
+
+After the reboot (with the display connected), `DISPLAY=:0 xset q` from an SSH session should print the screen settings. Then run `bash install/install_services.sh` and start the services. For HDMI sound, check `aplay -l` for a `vc4hdmi` card.
+
 ## Managing Services
 
 ### Field Player (main service)
