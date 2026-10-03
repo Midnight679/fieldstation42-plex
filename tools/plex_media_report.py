@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 from fs42.plex_source import PlexClient  # noqa: E402
 
-HEAVY_BITRATE_KBPS = 12000
+HEAVY_BITRATE_KBPS = 25000
 
 
 def is_heavy(media):

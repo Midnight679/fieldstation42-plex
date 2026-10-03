@@ -36,7 +36,11 @@ def schedule_tags(node):
 
 def check(client, path):
     with open(path, encoding="utf-8") as f:
-        conf = json.load(f)["station_conf"]
+        data = json.load(f)
+    if "station_conf" not in data:
+        print(f"\n(skipping {os.path.basename(path)}: not a channel config)")
+        return 0
+    conf = data["station_conf"]
     print(f"\n=== {conf.get('network_name', path)} (channel {conf.get('channel_number')}) ===")
     sources = conf.get("plex_sources", {})
     problems = 0
@@ -50,8 +54,9 @@ def check(client, path):
             continue
         hours = sum(e.duration for e in entries) / 3600
         status = "ok  " if entries else "EMPTY"
+        left_out = f", {client.last_skipped} left out (no playable version)" if client.last_skipped else ""
         problems += 0 if entries else 1
-        print(f"  [{status}] {tag}: {len(entries)} items, {hours:.1f} h")
+        print(f"  [{status}] {tag}: {len(entries)} items, {hours:.1f} h{left_out}")
 
     skip_keys = {"plex_sources", "clip_shows"}
     used = schedule_tags({k: v for k, v in conf.items() if k not in skip_keys})
@@ -67,7 +72,11 @@ def main():
     if not url or not token:
         sys.exit("Set PLEX_URL and PLEX_TOKEN first (e.g. source ~/.config/fs42/plex.env)")
     logging.disable(logging.CRITICAL)
-    client = PlexClient(url, token)
+    client = PlexClient.from_env()  # same PLEX_* settings the player uses, so the counts match the real catalog
+    if client.playable_only:
+        print("PLEX_PLAYABLE_ONLY is on: items with no version this player can decode are left out.")
+    else:
+        print("PLEX_PLAYABLE_ONLY is off: every item counts, including ones the player cannot decode.")
     total = sum(check(client, p) for p in sys.argv[1:])
     print("\nAll good." if total == 0 else f"\n{total} problem(s) found.")
     sys.exit(1 if total else 0)

@@ -98,13 +98,23 @@ block in `confs/main_config.json` (`transcode`, `max_height`, `max_bitrate`):
 |----------|---------|---------|
 | `PLEX_TRANSCODE` | `off` | `off` never transcodes, `auto` only when no playable version exists, `always` every time |
 | `PLEX_MAX_HEIGHT` | `1080` | Tallest picture the player can handle, and the transcode size |
-| `PLEX_MAX_BITRATE` | `10000` | Highest direct-play bitrate in kbps, and the transcode target |
+| `PLEX_MAX_BITRATE` | `10000` | Transcode target in kbps |
+| `PLEX_MAX_DIRECT_BITRATE` | `25000` | Highest bitrate in kbps still played directly (1080p H.264 is well within a Pi 4's hardware decoder) |
+| `PLEX_PLAYABLE_ONLY` | off | `true` leaves out of the catalog any item with no version the player can decode directly (also a per-source `"playable_only"` setting) |
 
 Whatever the mode, if an item has several versions (for example a 4K and a 1080p copy), the best
 version within these limits is chosen for direct play. Transcodes take a few seconds to start, so also set
 `"video_seek_timeout": 30` in `confs/main_config.json`. Plex needs enough CPU or GPU to transcode in real
 time. The fork asks Plex to end the previous transcode when the next one starts, so changing channels does
 not leave sessions running.
+
+Live transcoding needs a server that can convert video in real time. A server with no hardware
+transcoding (an older machine, or a NAS) usually cannot convert 4K HEVC fast enough, and Plex may refuse or
+stall. In that case set `PLEX_TRANSCODE=off` and `PLEX_PLAYABLE_ONLY=true`: only items the player can decode
+directly are scheduled, and heavy items join the channels automatically once a playable copy exists
+(for example a 1080p H.264 file made with Plex's Optimized Versions, HandBrake or ffmpeg). Rebuild the
+catalogs after adding copies. `tools/plex_transcode_test.py` checks whether your server accepts transcode
+requests, and `tools/plex_check_station.py` shows how many items each tag keeps.
 
 To see how much of your library needs this, run `tools/plex_media_report.py`. It prints the codec and
 resolution mix of each library and lists the heaviest files, without playing anything.

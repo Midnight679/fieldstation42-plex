@@ -119,3 +119,39 @@ journalctl --user -u fs42-* -f
 ```bash
 bash install/uninstall_services.sh
 ```
+
+## Raspberry Pi 4 on a minimal desktop: settings that matter
+
+These are the things that bite on a Pi 4 running a bare-bones desktop (see the section above):
+
+- **Run the screen at 1080p, set in the screen server, not afterwards.** A TV that supports 4K makes the Pi
+  start the desktop at 3840x2160. mpv then scales everything to 4K on a GPU meant for 1080p, and the picture
+  stutters or drops out. Changing the mode after the player has started leaves mpv with a stale window and
+  a black picture (the sound keeps playing). Set the mode before anything starts:
+
+  ```bash
+  sudo mkdir -p /etc/X11/xorg.conf.d
+  printf 'Section "Monitor"\n    Identifier "HDMI-1"\n    Option "PreferredMode" "1920x1080"\nEndSection\n' | sudo tee /etc/X11/xorg.conf.d/10-monitor.conf
+  ```
+
+  Use the output name `DISPLAY=:0 xrandr` shows as connected, if it is not `HDMI-1`.
+
+- **Point mpv at the HDMI sound device.** mpv defaults to the headphone jack, so a TV stays silent.
+  The Pi's HDMI audio only accepts stereo, which the `hdmi:` device handles. Find your card with
+  `aplay -l`, test it with `speaker-test -D hdmi:CARD=vc4hdmi0,DEV=0 -c 2 -t wav -l 1`, then:
+
+  ```bash
+  mkdir -p ~/.config/mpv
+  printf 'audio-device=alsa/hdmi:CARD=vc4hdmi0,DEV=0\naudio-channels=stereo\n' > ~/.config/mpv/mpv.conf
+  ```
+
+- **Do not enable `fs42-osd` unless the desktop has a compositor.** The on-screen display is a transparent
+  window. Without a compositor it draws as an opaque black box over the picture, so the sound plays and the
+  video disappears when the overlay pops up. Say N to it in `install_services.sh`.
+
+- **Only enable `fs42` (the Field Player).** It already serves the web console, so `fs42-web` is not needed.
+
+- **Play only what the Pi can decode.** A Pi 4 handles H.264 up to 1080p. 4K, HEVC and AV1 files overload it,
+  and a server without hardware transcoding cannot convert them live. See "Playing 4K and HEVC on a small
+  device" in [docs/PLEX.md](../../docs/PLEX.md): set `PLEX_PLAYABLE_ONLY=true` and `PLEX_TRANSCODE=off`.
+

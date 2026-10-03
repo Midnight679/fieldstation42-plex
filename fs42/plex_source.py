@@ -6,6 +6,7 @@ catalog database. The path is resolved to a real playback URL at playback time: 
 something a small player can decode, or a live Plex transcode (e.g. 4K down to 1080p H.264) when not.
 """
 
+import atexit
 import logging
 import os
 import re
@@ -30,15 +31,20 @@ class PlexClient:
     _instance = None
     _lock = threading.Lock()
 
-    def __init__(self, url, token, timeout=15, transcode="off", max_height=1080, max_bitrate=10000):
+    def __init__(self, url, token, timeout=15, transcode="off", max_height=1080, max_bitrate=10000, playable_only=False,
+                 max_direct_bitrate=25000):
         self.url = url.rstrip("/")
         self.token = token
         self.timeout = timeout
         # transcode: "off" never transcodes, "auto" only when no playable version exists, "always" every time
         self.transcode = (transcode or "off").lower()
         self.max_height = int(max_height)
-        self.max_bitrate = int(max_bitrate)  # kbps: direct-play ceiling and transcode target
+        self.max_bitrate = int(max_bitrate)  # kbps: the transcode target
+        self.max_direct_bitrate = int(max_direct_bitrate)  # kbps: highest bitrate worth playing directly
         self._transcode_session = None
+        # playable_only: leave out items that have no version this player can decode directly
+        self.playable_only = bool(playable_only)
+        self.last_skipped = 0
         self._l = logging.getLogger("PLEX")
         self._session = requests.Session()
         self._session.headers.update({"Accept": "application/json", "X-Plex-Token": token})
@@ -67,8 +73,28 @@ class PlexClient:
                     transcode=os.environ.get("PLEX_TRANSCODE") or conf.get("transcode", "off"),
                     max_height=os.environ.get("PLEX_MAX_HEIGHT") or conf.get("max_height", 1080),
                     max_bitrate=os.environ.get("PLEX_MAX_BITRATE") or conf.get("max_bitrate", 10000),
+                    max_direct_bitrate=os.environ.get("PLEX_MAX_DIRECT_BITRATE") or conf.get("max_direct_bitrate", 25000),
+                    playable_only=(os.environ.get("PLEX_PLAYABLE_ONLY", "").lower() in ("1", "true", "yes", "on"))
+                    or bool(conf.get("playable_only", False)),
                 )
+                atexit.register(cls._instance.stop_transcode)
             return cls._instance
+
+    @classmethod
+    def from_env(cls):
+        """A client configured only from PLEX_* environment variables (for the command line tools)."""
+        url, token = os.environ.get("PLEX_URL"), os.environ.get("PLEX_TOKEN")
+        if not url or not token:
+            raise RuntimeError("Set PLEX_URL and PLEX_TOKEN first (e.g. source ~/.config/fs42/plex.env)")
+        return cls(
+            url,
+            token,
+            transcode=os.environ.get("PLEX_TRANSCODE", "off"),
+            max_height=os.environ.get("PLEX_MAX_HEIGHT", 1080),
+            max_bitrate=os.environ.get("PLEX_MAX_BITRATE", 10000),
+            max_direct_bitrate=os.environ.get("PLEX_MAX_DIRECT_BITRATE", 25000),
+            playable_only=os.environ.get("PLEX_PLAYABLE_ONLY", "").lower() in ("1", "true", "yes", "on"),
+        )
 
     # ---- low level -------------------------------------------------------
 
@@ -168,17 +194,24 @@ class PlexClient:
     def build_entries(self, spec, tag, content_type="feature"):
         """Build CatalogEntry objects for every playable item matching spec."""
         entries = []
+        playable_only = spec.get("playable_only", self.playable_only)
+        skipped = 0
         for item in self._items_for_spec(spec):
             media = item.get("Media") or []
             duration_ms = item.get("duration") or (media[0].get("duration") if media else 0)
             if not media or not duration_ms:
                 self._l.warning(f"Skipping '{item.get('title')}': no media or duration reported by Plex")
                 continue
+            if playable_only and not any(self._playable(m) for m in media):
+                skipped += 1
+                continue
             parts = media[0].get("Part") or []
             ext = (parts[0].get("container") if parts else None) or "mkv"
             path = f"{PLEX_SCHEME}{item['ratingKey']}/{self._display_name(item, ext)}"
             entries.append(CatalogEntry(path, duration_ms / 1000.0, tag, [], content_type=content_type))
-        self._l.info(f"Plex spec {spec} -> {len(entries)} entries for tag '{tag}'")
+        self.last_skipped = skipped
+        extra = f" ({skipped} skipped: no version this player can decode)" if skipped else ""
+        self._l.info(f"Plex spec {spec} -> {len(entries)} entries for tag '{tag}'{extra}")
         return entries
 
     # ---- playback side ---------------------------------------------------
@@ -199,7 +232,7 @@ class PlexClient:
         return (
             codec in ("h264", "avc")
             and (media.get("height") or 0) <= self.max_height
-            and (media.get("bitrate") or 0) <= self.max_bitrate
+            and (media.get("bitrate") or 0) <= self.max_direct_bitrate
         )
 
     def _direct_url(self, media):
@@ -232,8 +265,21 @@ class PlexClient:
             "session": self._transcode_session,
             "X-Plex-Session-Identifier": self._transcode_session,
             "X-Plex-Client-Identifier": "fieldstation42",
-            "X-Plex-Product": "FieldStation42",
-            "X-Plex-Platform": "Linux",
+            # Plex answers 400 to a bare request; it accepts one that looks like its own web player
+            "X-Plex-Product": "Plex Web",
+            "X-Plex-Platform": "Chrome",
+            "X-Plex-Version": "4.0",
+            "X-Plex-Device": "Linux",
+            "X-Plex-Device-Name": "FieldStation42",
+            "X-Plex-Model": "bundled",
+            "hasMDE": 1,
+            "location": "lan",
+            "autoAdjustQuality": 0,
+            "directStreamAudio": 1,
+            "mediaBufferSize": 102400,
+            "subtitleSize": 100,
+            "audioBoost": 100,
+            "Accept-Language": "en",
             "X-Plex-Token": self.token,
         })
         return f"{self.url}/video/:/transcode/universal/start.m3u8?{query}"
@@ -255,6 +301,7 @@ class PlexClient:
         )
 
         if self.transcode != "always" and (playable or self.transcode == "off"):
+            self.stop_transcode()
             chosen = playable[0] if playable else versions[0]
             self._l.info(
                 f"Plex item {rating_key}: direct play {chosen.get('videoCodec')} {chosen.get('width')}x{chosen.get('height')}"
@@ -278,8 +325,21 @@ class PlexClient:
         return self._direct_url(playable[0] if playable else versions[0])
 
 
+def playback_headers(path):
+    """HTTP headers the player must send for this path.
+
+    A Plex transcode hands the player a playlist whose links carry no token, so the token has to travel as a
+    header on every request. It is sent only for Plex items, never to any other server.
+    """
+    if is_plex_path(path):
+        return [f"X-Plex-Token: {PlexClient.get().token}"]
+    return []
+
+
 def resolve_for_playback(path, offset=0):
     """Return (location, consumed_offset) for playback. Plex pseudo paths are resolved; anything else passes through."""
     if is_plex_path(path):
         return PlexClient.get().playback_target(path, offset)
+    if PlexClient._instance is not None:
+        PlexClient._instance.stop_transcode()
     return path, 0

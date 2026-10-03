@@ -11,7 +11,7 @@ import random
 import logging
 import time
 from python_mpv_jsonipc import MPV
-from fs42.plex_source import is_plex_path, resolve_for_playback
+from fs42.plex_source import is_plex_path, playback_headers, resolve_for_playback
 
 from fs42.guide_tk import guide_channel_runner, GuideCommands
 from fs42.autobump_agent import AutoBumpAgent
@@ -593,6 +593,7 @@ class StationPlayer:
                 self._l.info(f"playing {file_path}")
                 self.mpv.command("playlist-clear")
                 play_target, consumed_offset = resolve_for_playback(file_path, offset_seconds or 0)
+                self.mpv.command("set_property", "http-header-fields", playback_headers(file_path))
                 self.mpv.play(play_target)
                 
 
