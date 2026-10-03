@@ -51,3 +51,12 @@ Supported selectors: `show`, `collection`, `label`, `genre`, or just `library` f
 ```
 
 Put commercial clips in `catalog/plexTV/commercial/` and bumps in `catalog/plexTV/bump/` on the box. `content_dir` is still required because those folders are relative to it, but it doesn't need a `Seinfeld` folder. (Keep the `clip_shows`, sign-off and off-air settings from the upstream examples as needed.)
+
+## Seeing what's in your Plex
+
+To list your libraries, titles, genres and collections (no credentials in the output) so you can plan channels:
+
+```bash
+set -a; source ~/.config/fs42/plex.env; set +a
+python3 tools/plex_inventory.py > plex_inventory.txt
+```
