@@ -73,33 +73,62 @@ class PlexClient:
 
     # ---- catalog side ----------------------------------------------------
 
+    @staticmethod
+    def _as_list(value):
+        return value if isinstance(value, list) else [value]
+
+    @staticmethod
+    def _matches(item, spec):
+        """Client-side filters over a movie/show metadata dict. All given filters must match."""
+        def lowered(values):
+            return {str(v).lower() for v in PlexClient._as_list(values)}
+
+        title = item.get("title", "").lower()
+        titles = set()
+        if "show" in spec:
+            titles |= lowered(spec["show"])
+        if "titles" in spec:
+            titles |= lowered(spec["titles"])
+        if titles and title not in titles:
+            return False
+        if "exclude_titles" in spec and title in lowered(spec["exclude_titles"]):
+            return False
+        if "title_contains" in spec and not any(t in title for t in lowered(spec["title_contains"])):
+            return False
+        if "genre" in spec and not (lowered(spec["genre"]) & {g["tag"].lower() for g in item.get("Genre", [])}):
+            return False
+        if "label" in spec and not (lowered(spec["label"]) & {l["tag"].lower() for l in item.get("Label", [])}):
+            return False
+        year = item.get("year")
+        if "year_min" in spec and (year is None or year < spec["year_min"]):
+            return False
+        if "year_max" in spec and (year is None or year > spec["year_max"]):
+            return False
+        if "ratings" in spec and str(item.get("contentRating", "")).lower() not in lowered(spec["ratings"]):
+            return False
+        return True
+
     def _items_for_spec(self, spec):
-        """Return a flat list of playable Plex metadata dicts (movies / episodes) for a source spec."""
+        """Return a flat list of playable Plex metadata dicts (movies / episodes) for a source spec.
+
+        Selectors: show, titles, exclude_titles, title_contains, genre, label, year_min, year_max,
+        ratings, collection. All given selectors must match (they narrow, not widen).
+        """
         section = self._section_id(spec["library"])
-        params = {}
-        if "label" in spec:
-            params["label"] = spec["label"]
-        if "genre" in spec:
-            params["genre"] = spec["genre"]
 
         if "collection" in spec:
             colls = self._get(f"/library/sections/{section}/collections").get("Metadata", [])
             match = [c for c in colls if c["title"].lower() == spec["collection"].lower()]
             if not match:
                 raise ValueError(f"Collection '{spec['collection']}' not found in '{spec['library']}'")
-            children = self._get(f"/library/collections/{match[0]['ratingKey']}/children").get("Metadata", [])
-            return self._expand(children)
+            top = self._get(f"/library/collections/{match[0]['ratingKey']}/children").get("Metadata", [])
+        else:
+            top = self._get(f"/library/sections/{section}/all").get("Metadata", [])
 
-        if "show" in spec:
-            shows = self._get(f"/library/sections/{section}/all", {"type": 2, "title": spec["show"]}).get("Metadata", [])
-            shows = [s for s in shows if s["title"].lower() == spec["show"].lower()]
-            if not shows:
-                raise ValueError(f"Show '{spec['show']}' not found in '{spec['library']}'")
-            return self._expand(shows)
-
-        # whole library (optionally filtered by label/genre); episodes for show libraries, movies otherwise
-        top = self._get(f"/library/sections/{section}/all", params).get("Metadata", [])
-        return self._expand(top)
+        selected = [i for i in top if self._matches(i, spec)]
+        if not selected:
+            self._l.warning(f"Plex spec {spec} matched nothing in '{spec['library']}'")
+        return self._expand(selected)
 
     def _expand(self, items):
         out = []

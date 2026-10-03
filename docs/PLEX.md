@@ -23,7 +23,20 @@ Add a `plex_sources` map. Each key is a **tag** (the same tag you use in the wee
 }
 ```
 
-Supported selectors: `show`, `collection`, `label`, `genre`, or just `library` for everything in it. Tags that are not in `plex_sources` are scanned from `content_dir` as usual, so you can mix local and Plex content.
+Selectors (all of the ones you give must match, so each one narrows the result; give just `library` for everything in it):
+
+| Selector | Meaning |
+|----------|---------|
+| `show` | One show by exact title |
+| `titles` / `exclude_titles` | A list of exact titles to include / leave out |
+| `title_contains` | Text (or a list of text) the title must contain |
+| `genre` | A genre (or list; any one matches), e.g. `["Action", "Adventure"]` |
+| `label` | A Plex label (or list) |
+| `collection` | A Plex collection |
+| `year_min` / `year_max` | Release year range |
+| `ratings` | Allowed content ratings, e.g. `["G", "PG"]` (items with no rating never match) |
+
+Titles and genres are case-insensitive. Run `tools/plex_check_station.py` (below) to see what each tag matches. Tags that are not in `plex_sources` are scanned from `content_dir` as usual, so you can mix local and Plex content.
 
 ## How it works
 
@@ -59,4 +72,13 @@ To list your libraries, titles, genres and collections (no credentials in the ou
 ```bash
 set -a; source ~/.config/fs42/plex.env; set +a
 python3 tools/plex_inventory.py > plex_inventory.txt
+```
+
+## Checking a channel before you rebuild
+
+`tools/plex_check_station.py` is a dry run: it reads station configs, asks Plex what each tag matches, and prints the item count and hours per tag. It also flags tags that are scheduled but have no `plex_sources` entry.
+
+```bash
+set -a; source ~/.config/fs42/plex.env; set +a
+python3 tools/plex_check_station.py confs/mychannel.json
 ```
