@@ -65,6 +65,8 @@ Titles and genres are case-insensitive. Run `tools/plex_check_station.py` (below
 
 Put commercial clips in `catalog/plexTV/commercial/` and bumps in `catalog/plexTV/bump/` on the box. `content_dir` is still required because those folders are relative to it, but it doesn't need a `Seinfeld` folder. (Keep the `clip_shows`, sign-off and off-air settings from the upstream examples as needed.)
 
+Shows and movies rarely fill their time slot exactly (a 91-minute movie in a 2-hour slot leaves about 29 minutes), and the gap is filled from the `bump` folder (or the `commercial` folder when `commercial_free` is `false`). If those folders are empty or missing, the gap is filled with your `be_right_back_media` image and a one-time warning is logged. Add short video clips to the folders to fill gaps properly.
+
 ## Seeing what's in your Plex
 
 To list your libraries, titles, genres and collections (no credentials in the output) so you can plan channels:

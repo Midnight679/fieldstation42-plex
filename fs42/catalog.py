@@ -51,6 +51,9 @@ class ShowCatalog:
     prebump = "prebump"
     postbump = "postbump"
 
+    # Bump tags already warned about as empty, so the warning prints once per tag per run.
+    _warned_no_bumps = set()
+
     # Tracks content_dirs already scanned by FluidBuilder in this process run.
     # Prevents redundant directory walks when multiple stations share the same
     # content_dir (e.g. Comedy 1-4 all under catalog/movies).
@@ -597,7 +600,7 @@ class ShowCatalog:
 
     def find_bump(self, seconds, when, position=None, bump_tag=None, lookahead=None):
         if not bump_tag:
-            bump_tag = self.config["bump_dir"]
+            bump_tag = self.config.get("bump_dir")
 
         if position:
             pre_key = f"{bump_tag}-{ShowCatalog.prebump}"
@@ -613,7 +616,12 @@ class ShowCatalog:
             base_tag = bump_tag
 
         if base_tag not in self.clip_index:
-            raise NoFillerContentFound(f"Can't find bump folder for tag={base_tag}")
+            # an empty (or missing) bump folder has no catalog entries and so no index key; treat it as
+            # "no bumps available" so the caller falls back to the be-right-back media instead of failing
+            if base_tag not in ShowCatalog._warned_no_bumps:
+                ShowCatalog._warned_no_bumps.add(base_tag)
+                self._l.warning(f"No bumps found for tag={base_tag} - gaps will be filled with be-right-back media")
+            raise MatchingContentNotFound(f"No bumps available for tag={base_tag}")
 
         # build candidate pool from normal bumps
         candidates = [c for c in self.clip_index[base_tag]

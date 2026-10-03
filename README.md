@@ -28,7 +28,7 @@ This fork can pull show and movie content from a Plex server instead of local fo
 
 ```bash
 # Install dependencies
-sudo apt-get install mpv python3 python3-pip python3-venv
+sudo apt-get install mpv python3 python3-pip python3-venv python3-tk
 
 # Clone the repo
 git clone https://github.com/Midnight679/fieldstation42-plex
