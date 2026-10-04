@@ -87,7 +87,7 @@ python3 tools/plex_check_station.py confs/mychannel.json
 
 ## Playing 4K and HEVC on a small device (Raspberry Pi 4)
 
-A Pi 4 can hardware-decode H.264 up to 1080p, but not 4K or most HEVC (H.265). When a Plex item has
+A Pi 4 can play H.264 up to 1080p, and HEVC (H.265) only at 720p or below (see `PLEX_HEVC_MAX_HEIGHT`); 4K, larger HEVC and AV1 are out. When a Plex item has
 no version the player can handle, the fork can ask Plex to convert it on the fly to a 1080p H.264 stream,
 starting at the point in the schedule that is currently on air. Plex does the heavy lifting on the server.
 
@@ -100,6 +100,7 @@ block in `confs/main_config.json` (`transcode`, `max_height`, `max_bitrate`):
 | `PLEX_MAX_HEIGHT` | `1080` | Tallest picture the player can handle, and the transcode size |
 | `PLEX_MAX_BITRATE` | `10000` | Transcode target in kbps |
 | `PLEX_MAX_DIRECT_BITRATE` | `25000` | Highest bitrate in kbps still played directly (1080p H.264 is well within a Pi 4's hardware decoder) |
+| `PLEX_HEVC_MAX_HEIGHT` | `720` | Tallest HEVC (H.265) picture played directly. A Pi 4 has no usable hardware HEVC decode under stock mpv, so its CPU does the work: about 4x real time at 720p, only about 2x at 1080p. `0` turns HEVC off (also the `hevc_max_height` key). A mini PC can raise it, e.g. `2160` (still capped by `PLEX_MAX_HEIGHT`) |
 | `PLEX_PLAYABLE_ONLY` | off | `true` leaves out of the catalog any item with no version the player can decode directly (also a per-source `"playable_only"` setting) |
 
 Whatever the mode, if an item has several versions (for example a 4K and a 1080p copy), the best

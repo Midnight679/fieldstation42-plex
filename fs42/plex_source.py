@@ -23,6 +23,14 @@ _PATH_RE = re.compile(r"^plex://(\d+)/")
 _BAD_FILENAME_CHARS = re.compile(r'[\\/:*?"<>|]')
 
 
+DEFAULT_HEVC_MAX_HEIGHT = 720  # a Pi 4's CPU decodes 720p HEVC at about 4x real time, 1080p only about 2x
+
+
+def _first_set(*values):
+    """The first value that is not None or an empty string (so a setting of 0 still counts)."""
+    return next(v for v in values if v is not None and v != "")
+
+
 def is_plex_path(path) -> bool:
     return isinstance(path, str) and path.startswith(PLEX_SCHEME)
 
@@ -58,7 +66,7 @@ class PlexClient:
     _lock = threading.Lock()
 
     def __init__(self, url, token, timeout=15, transcode="off", max_height=1080, max_bitrate=10000, playable_only=False,
-                 max_direct_bitrate=25000):
+                 max_direct_bitrate=25000, hevc_max_height=DEFAULT_HEVC_MAX_HEIGHT):
         self.url = url.rstrip("/")
         self.token = token
         self.timeout = timeout
@@ -67,6 +75,8 @@ class PlexClient:
         self.max_height = int(max_height)
         self.max_bitrate = int(max_bitrate)  # kbps: the transcode target
         self.max_direct_bitrate = int(max_direct_bitrate)  # kbps: highest bitrate worth playing directly
+        # HEVC has no hardware decode on a Pi 4 under stock mpv, but its CPU manages small pictures; 0 turns HEVC off
+        self.hevc_max_height = int(hevc_max_height)
         self._transcode_session = None
         # playable_only: leave out items that have no version this player can decode directly
         self.playable_only = bool(playable_only)
@@ -100,6 +110,8 @@ class PlexClient:
                     max_height=os.environ.get("PLEX_MAX_HEIGHT") or conf.get("max_height", 1080),
                     max_bitrate=os.environ.get("PLEX_MAX_BITRATE") or conf.get("max_bitrate", 10000),
                     max_direct_bitrate=os.environ.get("PLEX_MAX_DIRECT_BITRATE") or conf.get("max_direct_bitrate", 25000),
+                    hevc_max_height=_first_set(os.environ.get("PLEX_HEVC_MAX_HEIGHT"), conf.get("hevc_max_height"),
+                                               DEFAULT_HEVC_MAX_HEIGHT),
                     playable_only=(os.environ.get("PLEX_PLAYABLE_ONLY", "").lower() in ("1", "true", "yes", "on"))
                     or bool(conf.get("playable_only", False)),
                 )
@@ -119,6 +131,7 @@ class PlexClient:
             max_height=os.environ.get("PLEX_MAX_HEIGHT", 1080),
             max_bitrate=os.environ.get("PLEX_MAX_BITRATE", 10000),
             max_direct_bitrate=os.environ.get("PLEX_MAX_DIRECT_BITRATE", 25000),
+            hevc_max_height=_first_set(os.environ.get("PLEX_HEVC_MAX_HEIGHT"), None, DEFAULT_HEVC_MAX_HEIGHT),
             playable_only=os.environ.get("PLEX_PLAYABLE_ONLY", "").lower() in ("1", "true", "yes", "on"),
         )
 
@@ -311,9 +324,12 @@ class PlexClient:
     def _playable(self, media):
         """True for versions a small player can decode directly: H.264 within the height and bitrate limits."""
         codec = (media.get("videoCodec") or "").lower()
+        height = media.get("height") or 0
+        if codec == "hevc" and 0 < height <= min(self.hevc_max_height, self.max_height) + 16:
+            return (media.get("bitrate") or 0) <= self.max_direct_bitrate  # decoded by the CPU, so only small pictures
         return (
             codec in ("h264", "avc")
-            and (media.get("height") or 0) <= self.max_height + 16  # 1088-pixel "1080p" files are common
+            and height <= self.max_height + 16  # 1088-pixel "1080p" files are common
             and (media.get("bitrate") or 0) <= self.max_direct_bitrate
         )
 
@@ -379,7 +395,7 @@ class PlexClient:
         versions = self._media_versions(rating_key)
         playable = sorted(
             (v for v in versions if self._playable(v)),
-            key=lambda v: (-(v.get("height") or 0), v.get("bitrate") or 0),
+            key=lambda v: ((v.get("videoCodec") or "").lower() == "hevc", -(v.get("height") or 0), v.get("bitrate") or 0),  # H.264 first
         )
 
         if self.transcode != "always" and (playable or self.transcode == "off"):
