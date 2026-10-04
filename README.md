@@ -31,6 +31,8 @@ The grid guide can show a picture beside each promo message; see [guide promos](
 
 A live-stream channel that skips dead feeds and jumps to a priority feed (a rocket launch, say) is described in [live streams](docs/LIVE_STREAMS.md).
 
+A fresh headless Ubuntu Server (Raspberry Pi 4 or an Intel mini PC) can be set up with one command: see [headless install](docs/HEADLESS_INSTALL.md).
+
 A [news channel](docs/NEWS.md) page shows headlines from public feeds and can switch to a live local newscast when one is on the air.
 
 A [standby](docs/STANDBY.md) call stops playback and frees the network and the media server overnight, and a second call wakes the player.

@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+# --yes (or -y): do not clear the screen or wait for Enter, so this can run from another script
+ASSUME_YES=0
+for arg in "$@"; do
+  case "$arg" in
+    -y|--yes) ASSUME_YES=1 ;;
+  esac
+done
+
 # ANSI Color Codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -16,7 +24,7 @@ WARN="${YELLOW}[!]${NC}"
 ERROR="${RED}[✗]${NC}"
 
 # Clear screen and show banner
-clear
+[ "$ASSUME_YES" -eq 1 ] || clear
 echo ""
 echo -e "${CYAN}═════════════════════════════════════════════════════════════${NC}"
 echo -e "${MAGENTA}    _____ _      _     _ ____  _        _   _             ${NC}"
@@ -42,7 +50,9 @@ echo -e "  • Copy default media files"
 echo ""
 echo -e "${GREEN}Your existing configuration files will NOT be overwritten.${NC}"
 echo ""
-read -p "Press Enter to proceed (or Ctrl+C to cancel)... "
+if [ "$ASSUME_YES" -eq 0 ]; then
+  read -p "Press Enter to proceed (or Ctrl+C to cancel)... "
+fi
 echo ""
 echo -e "${BLUE}Starting installation...${NC}"
 echo ""

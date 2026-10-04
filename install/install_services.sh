@@ -1,5 +1,25 @@
 #!/usr/bin/bash
 
+# --yes --services fs42,fs42-osd   enable exactly those services without asking (default with --yes: fs42)
+ASSUME_YES=0
+SERVICE_LIST="fs42"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -y|--yes) ASSUME_YES=1 ;;
+        --services) SERVICE_LIST="$2"; shift ;;
+    esac
+    shift
+done
+
+# want_service <unit> <default Y|N> <prompt>: true if the service should be enabled
+want_service() {
+    if [ "$ASSUME_YES" -eq 1 ]; then
+        case ",$SERVICE_LIST," in *",${1%.service},"*) return 0 ;; *) return 1 ;; esac
+    fi
+    read -p "$3" reply
+    if [ "$2" = "Y" ]; then [[ ! "$reply" =~ ^[Nn]$ ]]; else [[ "$reply" =~ ^[Yy]$ ]]; fi
+}
+
 # ANSI Color Codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -62,40 +82,35 @@ SERVICES_TO_ENABLE=()
 
 # Field Player
 echo -e "${BLUE}Field Player${NC} - Main content playback service (core functionality)"
-read -p "Enable fs42.service? (Y/n): " enable_fp
-if [[ ! "$enable_fp" =~ ^[Nn]$ ]]; then
+if want_service fs42.service Y "Enable fs42.service? (Y/n): "; then
     SERVICES_TO_ENABLE+=("fs42.service")
 fi
 
 # Web Console
 echo ""
 echo -e "${BLUE}Web Console${NC} - Standalone web interface (NOT needed if you enable the Field Player: it already serves the web console on port 4242)"
-read -p "Enable fs42-web.service? (y/N): " enable_web
-if [[ "$enable_web" =~ ^[Yy]$ ]]; then
+if want_service fs42-web.service N "Enable fs42-web.service? (y/N): "; then
     SERVICES_TO_ENABLE+=("fs42-web.service")
 fi
 
 # Cable Box
 echo ""
 echo -e "${BLUE}Cable Box${NC} - Cable box interface"
-read -p "Enable fs42-cable-box.service? (y/N): " enable_cb
-if [[ "$enable_cb" =~ ^[Yy]$ ]]; then
+if want_service fs42-cable-box.service N "Enable fs42-cable-box.service? (y/N): "; then
     SERVICES_TO_ENABLE+=("fs42-cable-box.service")
 fi
 
 # Remote Controller
 echo ""
 echo -e "${BLUE}Remote Controller${NC} - Remote controller interface"
-read -p "Enable fs42-remote-controller.service? (y/N): " enable_rc
-if [[ "$enable_rc" =~ ^[Yy]$ ]]; then
+if want_service fs42-remote-controller.service N "Enable fs42-remote-controller.service? (y/N): "; then
     SERVICES_TO_ENABLE+=("fs42-remote-controller.service")
 fi
 
 # OSD
 echo ""
 echo -e "${BLUE}On-Screen Display${NC} - Visual overlay (starts 30s after login)"
-read -p "Enable fs42-osd.service? (y/N): " enable_osd
-if [[ "$enable_osd" =~ ^[Yy]$ ]]; then
+if want_service fs42-osd.service N "Enable fs42-osd.service? (y/N): "; then
     SERVICES_TO_ENABLE+=("fs42-osd.service")
 fi
 
