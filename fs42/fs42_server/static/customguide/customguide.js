@@ -297,7 +297,7 @@ function buildGridDOM() {
   listings.classList.add('grid-mode');
   listings.innerHTML = `
     <div id="top-panel">
-      <div id="video-panel"><video id="bgVideoPlayer" preload="auto"></video></div>
+      <div id="video-panel"><video id="bgVideoPlayer" preload="auto"></video><div class="promo-image" id="promoA"></div><div class="promo-image" id="promoB"></div></div>
       <div id="text-panel">
         <div id="text-message-title"></div>
         <div id="text-message-body"></div>
@@ -656,8 +656,9 @@ function setupVideo() {
   if (!bgVideoPlayer) return;
 
   if (!videoPlaylist.length) {
+    // no videos: keep the panel for promo pictures if the messages carry any
     const videoPanel = document.getElementById('video-panel');
-    if (videoPanel) videoPanel.style.display = 'none';
+    if (videoPanel && !messages.some(function (m) { return m.image; })) videoPanel.style.display = 'none';
     return;
   }
 
@@ -700,6 +701,21 @@ async function loadMessages() {
   }
 }
 
+// A message may have an "image" (a path under the FieldStation42 folder): it fades in beside the text,
+// drifting slowly, like the promo picture on a cable guide channel.
+let promoFront = 0;
+function showPromoImage(path) {
+  const layers = [document.getElementById('promoA'), document.getElementById('promoB')];
+  if (!layers[0]) return;
+  const next = layers[1 - promoFront], current = layers[promoFront];
+  if (!path) { current.classList.remove('show'); return; }
+  next.style.backgroundImage = 'url("/media/file?path=' + encodeURIComponent(path) + '")';
+  next.classList.remove('show'); void next.offsetWidth;  // restart the drift animation
+  next.classList.add('show');
+  current.classList.remove('show');
+  promoFront = 1 - promoFront;
+}
+
 function showNextMessage(index) {
   const titleEl = document.getElementById('text-message-title');
   const bodyEl = document.getElementById('text-message-body');
@@ -709,6 +725,7 @@ function showNextMessage(index) {
 
   titleEl.style.opacity = '0';
   bodyEl.style.opacity = '0';
+  showPromoImage(msg.image);
 
   setTimeout(function () {
     titleEl.innerHTML = msg.title || '';

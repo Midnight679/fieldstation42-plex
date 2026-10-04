@@ -57,3 +57,9 @@ Serve the folder over HTTP and open it in a browser (opening the file directly w
 cd fs42/fs42_server/static/weather && python3 -m http.server 8765
 # then open http://localhost:8765/weather.html?lat=40.71&lon=-74.01&name=New%20York
 ```
+
+## Music
+
+No music is included. Use tracks you have the right to play, and keep any credit their license asks for. Many calm instrumental
+tracks are available under Creative Commons licenses (for example from [incompetech.com](https://incompetech.com), CC BY 4.0, which requires a credit line).
+Put the files in a folder under the FieldStation42 folder and set `music` to it.

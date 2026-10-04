@@ -46,8 +46,9 @@ class NamedSequence:
             entry = SequenceEntry(file)
             self.episodes.append(entry)
 
-        # explicitely sort them by file path for alpha-numeric ordering:
-        self.episodes = sorted(self.episodes, key=lambda entry: entry.fpath)
+        # explicitely sort them by file path for alpha-numeric ordering. Plex items sort by their name
+        # (which holds the season and episode), not by the item id in front of it.
+        self.episodes = sorted(self.episodes, key=lambda entry: entry.fpath.split("/", 3)[-1] if entry.fpath.startswith("plex://") else entry.fpath)
 
         # Clamp to the episode count - end_perc > 1 (misconfiguration) must not
         # push end_index past the last episode, or the completion check in

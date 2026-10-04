@@ -169,3 +169,17 @@ carry chapters, run `tools/plex_chapters_report.py`.
 To see how a program is laid out (show parts and the length of each ad break), run `python3 tools/show_plan.py <channel>`.
 Use a `schedule_increment` of `10` so a show that runs a little long gets a block only slightly longer than itself, instead of
 being rounded up to the next half hour with that whole gap filled with ads.
+
+## Playing a show in order
+
+A schedule slot with `"sequence"` plays a tag's episodes in order instead of at random, and remembers where it got to
+(see the Sequences section of `STATION_CONFIG_README.md`). It works with Plex tags too: the episodes are ordered by
+season and episode, from season 1 episode 1, and the sequence loops when it reaches the end.
+
+```json
+"day_templates": { "weekday": { "20": { "tags": "Seinfeld", "sequence": "in-order" } } }
+```
+
+Use one tag per show (a tag that mixes several shows is ordered by title, not by show). Episodes the player cannot
+decode are left out when `playable_only` is on, so the sequence skips over them. The sequence is rebuilt from the
+catalog, so rebuild the catalog after changing Plex content.

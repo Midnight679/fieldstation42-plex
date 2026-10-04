@@ -9,6 +9,7 @@ logger = logging.getLogger("media_api")
 
 AUDIO_EXTENSIONS = {'.mp3', '.ogg', '.wav', '.flac', '.aac', '.m4a', '.opus'}
 VIDEO_EXTENSIONS = {'.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v'}
+IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp'}
 
 # project root: fs42/fs42_server/api/media.py -> up three levels
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
@@ -64,7 +65,7 @@ async def serve_file(path: str):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="path is not a file")
 
     ext = os.path.splitext(resolved)[1].lower()
-    if ext not in AUDIO_EXTENSIONS and ext not in VIDEO_EXTENSIONS:
+    if ext not in AUDIO_EXTENSIONS and ext not in VIDEO_EXTENSIONS and ext not in IMAGE_EXTENSIONS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="unsupported file type")
 
     media_type, _ = mimetypes.guess_type(resolved)

@@ -7,6 +7,7 @@ from fs42.timings import DAYS
 from fs42.sequence_io import SequenceIO
 from fs42.media_processor import MediaProcessor
 from fs42.catalog_api import CatalogAPI
+from fs42.plex_source import is_plex_path
 from fs42.sequence import NamedSequence, SequenceEntry
 
 SEASON_RE = re.compile(
@@ -411,6 +412,9 @@ class SequenceAPI:
                 seq_name,
                 seq_tag,
             )
+            if not file_list:
+                # Plex items have no files on disk: take the catalogued entries for this tag instead
+                file_list = [e.path for e in CatalogAPI.get_entries(station_config) if e.tag == seq_tag and is_plex_path(e.path)]
             if not file_list:
                 _l.error(f"Sequence {seq_name}:{seq_tag} has no catalogued files - check content and rebuild the catalog.")
 

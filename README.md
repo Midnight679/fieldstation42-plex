@@ -27,6 +27,8 @@ Hardware notes: [Raspberry Pi 4 on a minimal desktop](install/systemd/README.md)
 
 A live [weather channel](docs/WEATHER.md) page is included, in the style of an early-2000s cable weather network.
 
+The grid guide can show a picture beside each promo message; see [guide promos](docs/GUIDE_PROMOS.md).
+
 
 ## Quick Start
 
