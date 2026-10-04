@@ -70,7 +70,7 @@ After=network-online.target
 
 [Service]
 WorkingDirectory=/home/YOU/fieldstation42-plex
-ExecStart=/home/YOU/fieldstation42-plex/env/bin/python3 tools/live_stream_picker.py --candidates /home/YOU/candidates.json --out runtime/live_streams.json --loop 120 --ytdlp /home/YOU/.local/bin/yt-dlp
+ExecStart=/home/YOU/fieldstation42-plex/env/bin/python3 tools/live_stream_picker.py --candidates /home/YOU/candidates.json --out runtime/live_streams.json --loop 120 --relay-port 8099 --ytdlp /home/YOU/.local/bin/yt-dlp
 Restart=on-failure
 
 [Install]
@@ -78,6 +78,16 @@ WantedBy=default.target
 ```
 
 ## Playing YouTube on a Raspberry Pi
+
+### If mpv fails with "tls: Error decoding the received TLS packet"
+
+Ubuntu's FFmpeg uses GnuTLS, which mishandles how YouTube's video servers close connections: mpv finds the stream, then plays
+nothing and exits with "Errors when loading file" (curl and Python fetch the same pieces without trouble). The picker can run a
+small relay that does the fetching with Python instead and gives mpv a plain local address. Add `--relay-port 8099` to the
+picker's command (as in the service above) and the playlist will contain addresses like `http://127.0.0.1:8099/yt/<id>`. The
+relay needs `yt-dlp` (below) but not the mpv settings further down.
+
+### yt-dlp
 
 mpv plays YouTube addresses through `yt-dlp`, which has to be installed and kept up to date, because YouTube changes
 often and old versions stop working. The standalone download is the simplest:
@@ -90,13 +100,15 @@ chmod +x ~/.local/bin/yt-dlp
 ```
 
 Then tell mpv where it is (the player service does not see `~/.local/bin`) and to pick a stream a Pi 4 can decode
-(H.264, 720p or lower). Add these lines to `~/.config/mpv/mpv.conf`:
+(H.264, 720p or lower). YouTube live feeds come as separate video and audio streams, so the format joins the two. Add these lines to `~/.config/mpv/mpv.conf`:
 
 ```
 script-opts=ytdl_hook-ytdl_path=/home/YOU/.local/bin/yt-dlp
-ytdl-format=best[height<=720][vcodec^=avc1]/best[height<=720]/best
+ytdl-format=bestvideo[height<=720][vcodec^=avc1]+bestaudio/bestvideo[height<=720]+bestaudio/best
 ```
 
-Test a feed before trusting it: `mpv --no-video "https://www.youtube.com/@SomeChannel/live"` should start playing audio.
+Test a feed before trusting it: `mpv --ao=null --vo=null --length=15 "https://www.youtube.com/@SomeChannel/live"` should
+print the video and audio it found (for example `h264 1280x720`) and run for 15 seconds. (The player keeps the sound device
+open while it runs, so a test that plays sound only works with the player stopped.)
 If YouTube feeds do not start, update yt-dlp first; its documentation lists any extra requirements for YouTube.
 Direct `.m3u8` feeds do not need yt-dlp at all.

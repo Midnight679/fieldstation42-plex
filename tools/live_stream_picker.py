@@ -43,6 +43,9 @@ from urllib.parse import urlparse
 
 import requests
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+from fs42 import hls_relay  # noqa: E402
+
 log = logging.getLogger("live_stream_picker")
 
 DEFAULT_PRIORITY_SECONDS = 7200
@@ -111,12 +114,14 @@ def find_ytdlp(explicit):
     return [found] if found else [sys.executable, "-m", "yt_dlp"]
 
 
-def probe(candidate, ytdlp):
+def probe(candidate, ytdlp, relay_port=0):
     """Add a "state" (live/offline/error) and the playable "play_url" to a candidate."""
     url = candidate["url"]
     c = dict(candidate)
     if is_youtube(url):
         c["state"], c["play_url"], title = check_youtube(url, ytdlp)
+        if relay_port and c["play_url"]:
+            c["play_url"] = hls_relay.relay_url(relay_port, c["play_url"]) or c["play_url"]
         if title and not c.get("title"):
             # live titles end with the current date and time, which would change every check
             c["title"] = re.sub(r"\s+\d{4}-\d{2}-\d{2} \d{2}:\d{2}$", "", title)
@@ -162,13 +167,17 @@ def write_atomic(path, payload):
 def run_once(args, ytdlp):
     with open(os.path.expanduser(args.candidates), encoding="utf-8") as f:
         conf = json.load(f)
-    probed = [probe(c, ytdlp) for c in conf.get("candidates", [])]
+    probed = [probe(c, ytdlp, args.relay_port) for c in conf.get("candidates", [])]
     for c in probed:
         log.info(f"{c['state']:8} {c.get('name', c['url'])}")
     if probed and all(c["state"] == "error" for c in probed):
         log.warning("Every check failed (no network?). Leaving the playlist as it is.")
         return
-    entries = build_playlist(probed, conf.get("fallback", []))
+    fallback = []
+    for fb in conf.get("fallback", []):
+        c = probe(fb, ytdlp, args.relay_port)
+        fallback.append(dict(fb, url=c["play_url"] if c["state"] == "live" and c["play_url"] else fb["url"]))
+    entries = build_playlist(probed, fallback)
     write_atomic(args.out, {"generated": time.strftime("%Y-%m-%d %H:%M:%S"), "streams": entries})
     log.info("Playlist: " + " | ".join(f"{'*' if e['priority'] else ' '}{e['title'][:40]}" for e in entries))
 
@@ -178,10 +187,15 @@ def main():
     ap.add_argument("--candidates", required=True, help="JSON file listing the streams to choose from")
     ap.add_argument("--out", required=True, help="playlist file the station config names as streams_file")
     ap.add_argument("--loop", type=int, default=0, metavar="SECONDS", help="keep running, checking again every N seconds")
+    ap.add_argument("--relay-port", type=int, default=0, metavar="PORT",
+                    help="run a local relay on this port and play YouTube feeds through it (needed where mpv cannot "
+                         "talk to YouTube directly, see docs/LIVE_STREAMS.md)")
     ap.add_argument("--ytdlp", help="how to run yt-dlp, if it is not on the PATH (for example /home/me/.local/bin/yt-dlp)")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     ytdlp = find_ytdlp(args.ytdlp)
+    if args.relay_port:
+        hls_relay.start(args.relay_port, ytdlp)
     while True:
         try:
             run_once(args, ytdlp)
