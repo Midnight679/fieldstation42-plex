@@ -25,7 +25,7 @@ def is_heavy(media):
     codec = (media.get("videoCodec") or "").lower()
     height = media.get("height") or 0
     bitrate = media.get("bitrate") or 0
-    return codec not in ("h264", "avc") or height > 1080 or bitrate > HEAVY_BITRATE_KBPS
+    return codec not in ("h264", "avc") or height > 1096 or bitrate > HEAVY_BITRATE_KBPS
 
 
 def main():

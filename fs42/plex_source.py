@@ -287,7 +287,7 @@ class PlexClient:
         codec = (media.get("videoCodec") or "").lower()
         return (
             codec in ("h264", "avc")
-            and (media.get("height") or 0) <= self.max_height
+            and (media.get("height") or 0) <= self.max_height + 16  # 1088-pixel "1080p" files are common
             and (media.get("bitrate") or 0) <= self.max_direct_bitrate
         )
 
