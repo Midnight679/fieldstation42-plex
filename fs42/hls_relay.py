@@ -4,9 +4,13 @@ On some systems (Ubuntu's FFmpeg uses GnuTLS) mpv fails on YouTube's video serve
 TLS packet" and plays nothing. This relay fetches everything with Python's own HTTPS code and hands mpv plain local HTTP:
 
     http://127.0.0.1:PORT/yt/<video id>    a playlist that joins the video and audio of that live stream
+    http://127.0.0.1:PORT/live/<channel>   the same for whatever a YouTube channel is streaming right now, so a channel that
+                                           restarts its stream under a new address keeps working. <channel> is @handle,
+                                           channel/UC... or user/name
     http://127.0.0.1:PORT/p/<token>        anything else the playlists point at (rewritten playlists, video pieces)
 
-It is started by tools/live_stream_picker.py (--relay-port) and is meant for localhost only.
+It is started by tools/live_stream_picker.py (--relay-port), or on its own with `python3 -m fs42.hls_relay --port 8099`,
+and is meant for localhost only.
 """
 
 import base64
@@ -24,6 +28,8 @@ log = logging.getLogger("hls_relay")
 
 DEFAULT_FORMAT = "bestvideo[height<=720][vcodec^=avc1]+bestaudio"
 RESOLVE_TTL = 240  # seconds a resolved stream address is reused
+# the only channel addresses the relay will resolve, so it cannot be pointed at arbitrary sites
+CHANNEL_RE = re.compile(r"^(@[\w.\-]+|channel/UC[\w\-]{20,}|user/[\w.\-]+)$")
 
 
 def _b64(url):
@@ -72,17 +78,19 @@ class Resolver:
         self._lock = threading.Lock()
 
     def resolve(self, video_id):
+        return self.resolve_url("https://www.youtube.com/watch?v=" + video_id)
+
+    def resolve_url(self, url):
         with self._lock:
-            hit = self._cache.get(video_id)
+            hit = self._cache.get(url)
             if hit and time.time() - hit[0] < RESOLVE_TTL:
                 return hit[1]
-            cmd = self.ytdlp + ["--no-warnings", "--no-playlist", "-g", "-f", self.fmt,
-                                "https://www.youtube.com/watch?v=" + video_id]
+            cmd = self.ytdlp + ["--no-warnings", "--no-playlist", "-g", "-f", self.fmt, url]
             out = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
             urls = [l.strip() for l in out.stdout.splitlines() if l.strip().startswith("http")]
             if not urls:
                 raise RuntimeError(out.stderr.strip()[-200:] or "yt-dlp returned no addresses")
-            self._cache[video_id] = (time.time(), urls)
+            self._cache[url] = (time.time(), urls)
             return urls
 
 
@@ -106,7 +114,12 @@ def make_handler(resolver, session):
         def do_GET(self):
             try:
                 if self.path.startswith("/yt/"):
-                    return self._youtube(self.path[4:].split("?")[0])
+                    return self._youtube(resolver.resolve(self.path[4:].split("?")[0]))
+                if self.path.startswith("/live/"):
+                    channel = self.path[6:].split("?")[0]
+                    if not CHANNEL_RE.match(channel):
+                        return self._send(400, b"Not a channel address.")
+                    return self._youtube(resolver.resolve_url(f"https://www.youtube.com/{channel}/live"))
                 if self.path.startswith("/p/"):
                     return self._proxy(_unb64(self.path[3:].split("?")[0]))
                 self._send(404)
@@ -121,8 +134,7 @@ def make_handler(resolver, session):
 
         do_HEAD = do_GET
 
-        def _youtube(self, video_id):
-            urls = resolver.resolve(video_id)
+        def _youtube(self, urls):
             if len(urls) >= 2:
                 body = master_playlist(urls[0], urls[1])
             else:  # a single combined stream
@@ -176,3 +188,20 @@ def relay_url(port, watch_url):
     """The relay address for a YouTube watch address, or None if it is not one."""
     m = re.search(r"[?&]v=([\w-]{6,})", watch_url)
     return f"http://127.0.0.1:{port}/yt/{m.group(1)}" if m else None
+
+
+if __name__ == "__main__":
+    import argparse
+    import shutil
+    import sys
+
+    ap = argparse.ArgumentParser(description="Run the local YouTube relay on its own.")
+    ap.add_argument("--port", type=int, default=8099)
+    ap.add_argument("--ytdlp", help="how to run yt-dlp if it is not on the PATH (for example /home/me/.local/bin/yt-dlp)")
+    ap.add_argument("--format", default=DEFAULT_FORMAT)
+    a = ap.parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
+    found = shutil.which("yt-dlp")
+    cmd = a.ytdlp.split() if a.ytdlp else ([found] if found else [sys.executable, "-m", "yt_dlp"])
+    start(a.port, cmd, a.format)
+    threading.Event().wait()

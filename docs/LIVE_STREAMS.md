@@ -87,6 +87,30 @@ small relay that does the fetching with Python instead and gives mpv a plain loc
 picker's command (as in the service above) and the playlist will contain addresses like `http://127.0.0.1:8099/yt/<id>`. The
 relay needs `yt-dlp` (below) but not the mpv settings further down.
 
+### A channel that is just one always-on YouTube stream
+
+No picker is needed for a feed that is simply always on. Any running relay also answers
+`http://127.0.0.1:PORT/live/<channel>` with whatever that YouTube channel is streaming right now (`<channel>` is `@handle`,
+`channel/UC...` or `user/name`), so it keeps working when the channel restarts its stream under a new address. Use it as the
+stream address in an ordinary streaming channel:
+
+```json
+{
+  "station_conf": {
+    "network_name": "Always On",
+    "network_type": "streaming",
+    "channel_number": 997,
+    "content_dir": "catalog/alwayson",
+    "stream_down_message": "STAND BY",
+    "streams": [{"url": "http://127.0.0.1:8099/live/@SomeChannel", "duration": 21600, "title": "Always On"}]
+  }
+}
+```
+
+The relay is whichever one a picker started with `--relay-port`, or one run on its own:
+`python3 -m fs42.hls_relay --port 8099 --ytdlp /home/YOU/.local/bin/yt-dlp`. If the stream is offline the channel shows the
+stand-by message and tries again.
+
 ### yt-dlp
 
 mpv plays YouTube addresses through `yt-dlp`, which has to be installed and kept up to date, because YouTube changes
