@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>News42</title>
+  <link rel="stylesheet" href="news.css">
+</head>
+<body>
+  <div id="stage">
+    <div id="bg"></div>
+    <header id="topbar">
+      <div id="brand"><span class="brand-main">NEWS</span><span class="brand-num">42</span></div>
+      <div id="section-title">Top Stories</div>
+      <div id="clock-block"><div id="clock"></div><div id="date"></div></div>
+    </header>
+
+    <main id="screens">
+      <section id="lead">
+        <div id="lead-card">
+          <div id="lead-kicker"></div>
+          <h1 id="lead-title"></h1>
+          <p id="lead-summary"></p>
+          <div id="lead-meta"></div>
+        </div>
+      </section>
+      <aside id="list"></aside>
+      <div id="error-box">Headlines are unavailable right now.<br><small>Trying again shortly.</small></div>
+    </main>
+
+    <footer id="bottombar">
+      <div id="wx"></div>
+      <div id="ticker"><div id="ticker-text"></div></div>
+    </footer>
+  </div>
+  <script src="news.js"></script>
+</body>
+</html>

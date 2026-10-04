@@ -12,7 +12,8 @@ import logging
 import time
 from python_mpv_jsonipc import MPV
 from fs42.plex_source import is_plex_path, playback_headers, resolve_for_playback
-from fs42.live_streams import mark_failed, priority_stream_changed
+from fs42.live_streams import first_live_stream, mark_failed, priority_stream_changed
+from fs42.block_plan import BlockPlanEntry
 
 from fs42.guide_tk import guide_channel_runner, GuideCommands
 from fs42.autobump_agent import AutoBumpAgent
@@ -922,7 +923,18 @@ class StationPlayer:
         except Exception:
             self._l.error(f"Failed to stop player - might not be running")
 
+    def _play_live_over_web(self, live):
+        """Play a live feed on a web channel (the page gives way to it). Returns when the feed ends, dies or is changed away from."""
+        self._l.info(f"Live feed on the web channel: {live.get('title', live['url'])}")
+        plan = [BlockPlanEntry(live["url"], 0, int(live["duration"]), is_stream=True, content_type="stream", media_type="video")]
+        return self._play_from_point(PlayPoint(0, 0, plan, live.get("title", "Live")))
+
     def show_web(self, web_config, blocking=True):
+        if blocking and web_config.get("streams_file"):
+            # a web channel with a streams file shows its page, unless a live feed is on the air right now
+            live = first_live_stream(web_config)
+            if live:
+                return self._play_live_over_web(live)
         if not WEB_RENDER_AVAILABLE:
             self._l.error("Web rendering not available - PySide6 not installed")
             msg = "Web rendering requires PySide6 to be installed and configured. Please check documentation."
@@ -965,9 +977,30 @@ class StationPlayer:
             stop_time = datetime.datetime.now() + datetime.timedelta(seconds=duration)
             self._l.info(f"Web content will auto-stop after {duration} seconds")
 
+        live_check_file = web_config.get("streams_file")
+        last_live_check = time.time()
         keep_going = True
         while keep_going:
             time.sleep(0.05)
+
+            # a live feed came on the air: close the page and switch to it
+            if live_check_file and time.time() - last_live_check >= 30:
+                last_live_check = time.time()
+                live = first_live_stream(web_config)
+                if live:
+                    self._l.info("A live feed is on the air, closing the web page")
+                    try:
+                        self.web_queue.put("hide_window")
+                        self.web_process.join(timeout=3)
+                        if self.web_process.is_alive():
+                            self.web_process.terminate()
+                            self.web_process.join(timeout=1)
+                    except Exception as e:
+                        self._l.error(f"Error shutting down web process: {e}")
+                    finally:
+                        self.web_process = None
+                        self.web_queue = None
+                    return self._play_live_over_web(live)
 
             # Check if duration has expired
             if stop_time and datetime.datetime.now() >= stop_time:

@@ -63,6 +63,20 @@ def load_streams(station_conf):
     return list(station_conf.get("streams", []))
 
 
+def first_live_stream(station_conf):
+    """The first stream in `streams_file` that has not recently failed, or None. For web channels that give way to a live feed."""
+    path = station_conf.get("streams_file")
+    if not path:
+        return None
+    streams = _read_file(path)
+    if not streams:
+        return None
+    for s in _healthy_first(streams):
+        if not _recently_failed(s["url"]):
+            return s
+    return None
+
+
 def priority_stream_changed(station_conf, current_url):
     """True if the streams file now starts with a priority stream that is not the one playing."""
     path = station_conf.get("streams_file")
