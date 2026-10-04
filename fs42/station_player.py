@@ -194,6 +194,9 @@ class StationPlayer:
                 force_window=True,
                 script_opts="osc-idlescreen=no",
                 hr_seek="yes",
+                # mpv shows a still image for one second by default and then goes blank. The player ends each
+                # item by the clock, so images (standby, be-right-back cards) must stay up until the next load.
+                image_display_duration="inf",
             )
 
         self.station_config = station_config
