@@ -472,6 +472,18 @@ class StationPlayer:
         except Exception as e:
             self._l.error(f"Failed to start Now Playing overlay: {e}")
 
+    def _current_path(self):
+        try:
+            return self.mpv.path
+        except Exception:
+            return None
+
+    def _on_target(self, target, previous_path):
+        """True once mpv has moved on to the file that was asked for: it reports that address, or it is no longer on the
+        previous file. If mpv cannot say, assume it has."""
+        path = self._current_path()
+        return path is None or path == target or path != previous_path
+
     def _show_stream_down(self):
         """Stop playback and display a stream-unavailable OSD message."""
         message = "TECHNICAL DIFFICULTIES"
@@ -600,6 +612,7 @@ class StationPlayer:
                 self.mpv.command("playlist-clear")
                 play_target, consumed_offset = resolve_for_playback(file_path, offset_seconds or 0)
                 self.mpv.command("set_property", "http-header-fields", playback_headers(file_path))
+                previous_path = self._current_path()
                 self.mpv.play(play_target)
                 
 
@@ -608,7 +621,9 @@ class StationPlayer:
 
                 while True:
                     try:
-                        if self.mpv.time_pos is not None:
+                        # for a stream, wait for mpv to be on the NEW address: right after the load command it can still be
+                        # on the previous channel's file, whose position would be mistaken for the stream having started
+                        if self.mpv.time_pos is not None and (not is_stream or self._on_target(play_target, previous_path)):
                             break
                         if time.time() - start_time > timeout_seconds:
                             self._l.error(f"Timeout waiting for playback to start on {file_path}")
