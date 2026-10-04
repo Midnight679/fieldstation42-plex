@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather42</title>
+  <link rel="stylesheet" href="weather.css">
+</head>
+<body>
+  <div id="stage">
+    <div id="bg"><div class="bg-layer"></div><div class="bg-layer"></div></div>
+    <header id="topbar">
+      <div id="brand"><span class="brand-main">WEATHER</span><span class="brand-num">42</span></div>
+      <div id="screen-title">Current Conditions</div>
+      <div id="clock-block"><div id="clock"></div><div id="date"></div></div>
+    </header>
+
+    <main id="screens">
+      <section class="screen" id="screen-now"></section>
+      <section class="screen" id="screen-hourly"></section>
+      <section class="screen" id="screen-daily"></section>
+      <section class="screen" id="screen-almanac"></section>
+      <section class="screen" id="screen-error">
+        <div class="error-box">Weather data is unavailable right now.<br><small id="error-detail"></small></div>
+      </section>
+    </main>
+
+    <footer id="bottombar">
+      <div id="place"></div>
+      <div id="ticker"><div id="ticker-text"></div></div>
+      <div id="dots"></div>
+    </footer>
+  </div>
+  <script src="weather.js"></script>
+</body>
+</html>

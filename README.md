@@ -25,6 +25,8 @@ This fork can pull show and movie content from a Plex server instead of local fo
 
 Hardware notes: [Raspberry Pi 4 on a minimal desktop](install/systemd/README.md) and [running on an Intel mini PC](docs/X86_MINI_PC.md).
 
+A live [weather channel](docs/WEATHER.md) page is included, in the style of an early-2000s cable weather network.
+
 
 ## Quick Start
 

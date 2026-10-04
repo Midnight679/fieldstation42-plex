@@ -1,0 +1,109 @@
+/* Weather42: a 2000s-style local weather channel. Sizes scale with the screen height so it fits any display. */
+:root {
+  --blue-top: #1d5fc4;
+  --blue-mid: #0f3a8c;
+  --blue-deep: #071a4d;
+  --gold: #ffd23f;
+  --panel: rgba(4, 18, 60, 0.62);
+  --panel-edge: rgba(150, 195, 255, 0.45);
+  --text: #ffffff;
+  --muted: #b9d2ff;
+  --font: 'DejaVu Sans', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 1.85vh; }
+body {
+  width: 100vw; height: 100vh; overflow: hidden; background: var(--blue-deep);
+  color: var(--text); font-family: var(--font);
+}
+
+#stage {
+  position: relative; width: 100%; height: 100%; display: flex; flex-direction: column;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(120, 180, 255, 0.55) 0%, rgba(120, 180, 255, 0) 55%),
+    linear-gradient(180deg, var(--blue-top) 0%, var(--blue-mid) 55%, var(--blue-deep) 100%);
+}
+
+/* ---- faded background scenes (two layers cross-fade) ---- */
+#bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.bg-layer { position: absolute; inset: -4%; background-size: cover; background-position: center; opacity: 0;
+  transition: opacity 5s ease; animation: drift 70s ease-in-out infinite alternate; }
+.bg-layer.show { opacity: 0.55; }
+@keyframes drift { from { transform: scale(1.0) translateX(-1.2%); } to { transform: scale(1.08) translateX(1.2%); } }
+#bg::after { content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(6, 28, 90, 0.35) 0%, rgba(6, 20, 70, 0.55) 100%); }
+#topbar, #screens, #bottombar { position: relative; z-index: 1; }
+
+/* ---- top bar ---- */
+#topbar {
+  display: flex; align-items: center; justify-content: space-between; flex: 0 0 11%;
+  padding: 0 3%; border-bottom: 0.35rem solid var(--gold);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 55%), rgba(3, 14, 50, 0.55);
+}
+#brand { font-weight: 900; letter-spacing: 0.06em; font-size: 2.6rem; text-shadow: 0 0.12rem 0.5rem rgba(0, 0, 0, 0.6); }
+.brand-num { color: var(--gold); margin-left: 0.2em; }
+#screen-title { font-size: 2.2rem; font-weight: 700; text-shadow: 0 0.1rem 0.4rem rgba(0, 0, 0, 0.6); transition: opacity 0.4s; }
+#clock-block { text-align: right; }
+#clock { font-size: 2.4rem; font-weight: 700; }
+#date { font-size: 1.1rem; color: var(--muted); }
+
+/* ---- screens ---- */
+#screens { position: relative; flex: 1 1 auto; }
+.screen {
+  position: absolute; inset: 0; padding: 2.5% 4%; display: flex; align-items: center; justify-content: center; gap: 2.5%;
+  opacity: 0; transition: opacity 0.6s ease; pointer-events: none;
+}
+.screen.active { opacity: 1; }
+
+.panel {
+  background: var(--panel); border: 0.15rem solid var(--panel-edge); border-radius: 1.1rem; padding: 1.4rem 1.8rem;
+  box-shadow: 0 0.5rem 1.6rem rgba(0, 0, 0, 0.35), inset 0 0.1rem 0 rgba(255, 255, 255, 0.18);
+}
+
+/* current conditions */
+.now-main { display: flex; align-items: center; gap: 2rem; flex: 0 0 46%; justify-content: center; }
+.now-temp { font-size: 8.5rem; font-weight: 900; line-height: 1; text-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.55); }
+.now-temp sup { font-size: 3.5rem; vertical-align: top; position: relative; top: 0.8rem; }
+.now-cond { font-size: 2.3rem; font-weight: 700; margin-top: 0.4rem; color: var(--gold); }
+.now-icon svg { width: 11rem; height: 11rem; filter: drop-shadow(0 0.3rem 0.5rem rgba(0, 0, 0, 0.5)); }
+.now-facts { flex: 0 0 40%; display: grid; grid-template-columns: 1fr; gap: 0.35rem; }
+.fact { display: flex; justify-content: space-between; font-size: 1.7rem; padding: 0.55rem 0; border-bottom: 0.1rem solid rgba(150, 195, 255, 0.25); }
+.fact:last-child { border-bottom: none; }
+.fact span:first-child { color: var(--muted); }
+.fact span:last-child { font-weight: 700; }
+
+/* columns used by hourly and daily */
+.cols { display: flex; width: 100%; gap: 1.2rem; height: 82%; }
+.col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; padding: 1.2rem 0.5rem; }
+.col .when { font-size: 1.7rem; font-weight: 800; color: var(--gold); }
+.col svg { width: 7.5rem; height: 7.5rem; filter: drop-shadow(0 0.2rem 0.4rem rgba(0, 0, 0, 0.45)); }
+.col .temp { font-size: 3.3rem; font-weight: 900; }
+.col .hilo { font-size: 2.2rem; font-weight: 800; }
+.col .hilo .lo { color: var(--muted); font-weight: 600; }
+.col .sub { font-size: 1.3rem; color: var(--muted); }
+.col .cond { font-size: 1.2rem; min-height: 2.4rem; }
+
+/* almanac */
+.alm { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: center; gap: 0.6rem; height: 70%; }
+.alm .big { font-size: 4.6rem; font-weight: 900; }
+.alm .label { font-size: 1.7rem; color: var(--gold); font-weight: 800; letter-spacing: 0.05em; }
+.alm .small { font-size: 1.4rem; color: var(--muted); }
+.alm svg { width: 7rem; height: 7rem; margin: 0 auto; }
+
+.error-box { font-size: 2.6rem; text-align: center; line-height: 1.5; }
+.error-box small { font-size: 1.2rem; color: var(--muted); }
+
+/* ---- bottom bar ---- */
+#bottombar {
+  display: flex; align-items: center; flex: 0 0 9%; padding: 0 3%; gap: 2rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0) 60%), rgba(3, 14, 50, 0.7);
+  border-top: 0.25rem solid var(--gold);
+}
+#place { font-size: 1.7rem; font-weight: 800; white-space: nowrap; color: var(--gold); }
+#ticker { flex: 1; overflow: hidden; white-space: nowrap; position: relative; height: 2.2rem; }
+#ticker-text { position: absolute; font-size: 1.5rem; padding-left: 100%; animation: scroll 60s linear infinite; }
+@keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+#dots { display: flex; gap: 0.6rem; }
+#dots i { width: 0.9rem; height: 0.9rem; border-radius: 50%; background: rgba(150, 195, 255, 0.35); display: block; transition: background 0.4s; }
+#dots i.on { background: var(--gold); }

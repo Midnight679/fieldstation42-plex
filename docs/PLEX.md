@@ -155,6 +155,9 @@ items are not local files, so this fork supplies the cut points itself:
   where the scheduler looks for break points, so breaks land at chapter boundaries (usually scene changes).
   Items already stored are skipped on later rebuilds. Use `--reset_chapters` to fetch them again, and
   `--skip_chapter_scan` to skip the lookup entirely.
+- **Long chapters are subdivided.** Plex items often have only a few chapters, and the scheduler spreads the ad time
+  evenly over the cut points it has, so two or three chapters would mean a few very long breaks. Any chapter longer than
+  four minutes is split into equal pieces, so there are always enough places to cut and breaks stay short.
 - **Even splits for everything else.** An item with fewer than two chapters is divided into equal parts, with
   a break after each part.
 - Items shorter than five minutes are never cut.
@@ -163,3 +166,6 @@ Use `"break_strategy": "standard"` and a `"break_duration"` (seconds per break, 
 config. With `"break_strategy": "end"` every break plays after the show instead. To see how many of your items
 carry chapters, run `tools/plex_chapters_report.py`.
 
+To see how a program is laid out (show parts and the length of each ad break), run `python3 tools/show_plan.py <channel>`.
+Use a `schedule_increment` of `10` so a show that runs a little long gets a block only slightly longer than itself, instead of
+being rounded up to the next half hour with that whole gap filled with ads.

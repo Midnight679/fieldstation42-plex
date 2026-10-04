@@ -7,6 +7,7 @@ from fs42.reel_cutter import ReelCutter
 from fs42.block_plan import BlockPlanEntry
 from fs42.fluid_builder import FluidBuilder
 from fs42.media_processor import MediaProcessor
+from fs42.plex_source import is_plex_path, subdivide_chapters
 
 
 class LiquidBlock:
@@ -112,6 +113,9 @@ class LiquidBlock:
 
         # Prefer chapter markers over black detection
         break_points = _fluid.get_chapters(self.content.realpath)
+        if break_points and is_plex_path(self.content.realpath):
+            # a few long chapters would turn into a few very long ad breaks, so offer more places to cut
+            break_points = subdivide_chapters(break_points, self.content_duration())
         if not break_points:
             # Fall back to black detection if no chapters
             break_points = _fluid.get_breaks(self.content.realpath)

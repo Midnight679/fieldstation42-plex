@@ -27,6 +27,32 @@ def is_plex_path(path) -> bool:
     return isinstance(path, str) and path.startswith(PLEX_SCHEME)
 
 
+def subdivide_chapters(points, duration, max_seconds=240):
+    """Split any chapter longer than max_seconds into equal pieces, so there are always enough places to cut.
+
+    Plex items often have only a few chapters. The scheduler spreads the ad time evenly over the cut points it has,
+    so an episode with two or three chapters would get a few very long breaks. Returns [{"chapter_start", "chapter_end"}]
+    covering 0..duration with no gaps.
+    """
+    pts = sorted(({"chapter_start": float(p["chapter_start"]), "chapter_end": float(p.get("chapter_end", duration))} for p in points),
+                 key=lambda p: p["chapter_start"])
+    if not pts:
+        return []
+    # cover the whole item: each chapter runs to the start of the next (the last one to the end)
+    bounds = [0.0] + [p["chapter_start"] for p in pts if p["chapter_start"] > 0.0] + [float(duration)]
+    bounds = sorted(set(round(b, 3) for b in bounds if 0.0 <= b <= duration))
+    out = []
+    for start, end in zip(bounds, bounds[1:]):
+        length = end - start
+        if length <= 0:
+            continue
+        pieces = max(1, int(-(-length // max_seconds)))  # ceiling division
+        step = length / pieces
+        for i in range(pieces):
+            out.append({"chapter_start": start + i * step, "chapter_end": start + (i + 1) * step})
+    return out
+
+
 class PlexClient:
     _instance = None
     _lock = threading.Lock()
