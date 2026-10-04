@@ -208,11 +208,67 @@ class PlexClient:
             parts = media[0].get("Part") or []
             ext = (parts[0].get("container") if parts else None) or "mkv"
             path = f"{PLEX_SCHEME}{item['ratingKey']}/{self._display_name(item, ext)}"
-            entries.append(CatalogEntry(path, duration_ms / 1000.0, tag, [], content_type=content_type))
+            entry = CatalogEntry(path, duration_ms / 1000.0, tag, [], content_type=content_type)
+            entry.realpath = path  # the key chapter points are stored under (see store_chapters)
+            entries.append(entry)
         self.last_skipped = skipped
         extra = f" ({skipped} skipped: no version this player can decode)" if skipped else ""
         self._l.info(f"Plex spec {spec} -> {len(entries)} entries for tag '{tag}'{extra}")
         return entries
+
+    # ---- chapters --------------------------------------------------------
+
+    def chapters_for(self, rating_key):
+        """Chapter ranges for an item as [{"chapter_start": s, "chapter_end": e}] in seconds, or [] if it has none.
+
+        A single chapter is useless as a cut point, so fewer than two counts as none.
+        """
+        meta = self._get(f"/library/metadata/{rating_key}", {"includeChapters": 1}).get("Metadata", [{}])[0]
+        segments = []
+        for ch in meta.get("Chapter") or []:
+            start, end = ch.get("startTimeOffset"), ch.get("endTimeOffset")
+            if start is None or end is None or end <= start:
+                continue
+            segments.append({"chapter_start": start / 1000.0, "chapter_end": end / 1000.0})
+        segments.sort(key=lambda s: s["chapter_start"])
+        return segments if len(segments) >= 2 else []
+
+    def store_chapters(self, entries, fluid, force=False):
+        """Fetch each entry's chapters from Plex and store them where the scheduler looks for break points.
+
+        Items already stored are skipped unless force is set, so a catalog rebuild only asks about new items.
+        """
+        import sqlite3
+
+        from fs42.fluid_statements import FluidStatements
+
+        connection = sqlite3.connect(fluid.db_path)
+        found = skipped = failed = 0
+        try:
+            cursor = connection.cursor()
+            for i, entry in enumerate(entries, 1):
+                key = entry.realpath or entry.path
+                m = _PATH_RE.match(key)
+                if not m or entry.duration < 300:  # same rule as local files: no breaks needed under 5 minutes
+                    continue
+                if not force:
+                    cursor.execute("SELECT 1 FROM chapter_points WHERE path=?", (key,))
+                    if cursor.fetchone():
+                        skipped += 1
+                        continue
+                try:
+                    segments = self.chapters_for(m.group(1))
+                except Exception as e:  # noqa: BLE001  one bad item must not stop the catalog build
+                    self._l.debug(f"No chapters for {key}: {e}")
+                    failed += 1
+                    continue
+                FluidStatements.add_chapter_points(connection, key, segments)  # an empty list records "scanned, none"
+                found += 1 if segments else 0
+                if i % 200 == 0:
+                    self._l.info(f"Chapters: checked {i} of {len(entries)} items")
+        finally:
+            connection.close()
+        self._l.info(f"Chapters: {found} items have usable chapters, {skipped} already known, {failed} failed")
 
     # ---- playback side ---------------------------------------------------
 

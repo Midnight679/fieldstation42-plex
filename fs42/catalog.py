@@ -380,6 +380,9 @@ class ShowCatalog:
             self._l.info(f"Fetching media for tag={tag} from Plex: {plex_spec}")
             entries = PlexClient.get().build_entries(plex_spec, tag, content_type=content_type)
             self.clip_index[tag] = entries
+            if self.__fluid_builder and not self.skip_chapter_scan and content_type == "feature":
+                # cut shows at Plex's chapter markers instead of evenly (items with none are still split evenly)
+                PlexClient.get().store_chapters(entries, self.__fluid_builder)
             return len(entries)
         if tag not in self.clip_index:
             self.clip_index[tag] = []

@@ -118,3 +118,48 @@ requests, and `tools/plex_check_station.py` shows how many items each tag keeps.
 
 To see how much of your library needs this, run `tools/plex_media_report.py`. It prints the codec and
 resolution mix of each library and lists the heaviest files, without playing anything.
+
+## Choosing audio and subtitle languages
+
+Many files carry several audio and subtitle tracks, and the file's own default is often the original language
+(for example Japanese audio on anime). mpv picks tracks by language, so set a preference in
+`~/.config/mpv/mpv.conf`. This prefers English audio, and shows English subtitles only when the audio is not
+English (the last line needs a recent mpv; check with `mpv --list-options | grep subs-with-matching-audio`):
+
+```
+alang=en,eng,english
+slang=en,eng,english
+subs-with-matching-audio=no
+```
+
+It applies to every channel. Files with no English track play as before. To see which tracks a file has while
+it plays, ask mpv:
+
+```bash
+cd ~/fieldstation42-plex && source env/bin/activate
+python3 - <<'EOF'
+from python_mpv_jsonipc import MPV
+m = MPV(start_mpv=False, ipc_socket="runtime/mpv.socket")
+for t in m.command("get_property", "track-list"):
+    if t.get("type") in ("audio", "sub"):
+        print(t["type"], t.get("id"), t.get("lang"), t.get("title"), "SELECTED" if t.get("selected") else "")
+EOF
+```
+
+## Commercial breaks inside a show
+
+FieldStation42 normally finds the places to cut a show for a break by scanning the video file on disk. Plex
+items are not local files, so this fork supplies the cut points itself:
+
+- **Chapters from Plex.** When the catalog is built, each item's chapter markers are fetched once and stored
+  where the scheduler looks for break points, so breaks land at chapter boundaries (usually scene changes).
+  Items already stored are skipped on later rebuilds. Use `--reset_chapters` to fetch them again, and
+  `--skip_chapter_scan` to skip the lookup entirely.
+- **Even splits for everything else.** An item with fewer than two chapters is divided into equal parts, with
+  a break after each part.
+- Items shorter than five minutes are never cut.
+
+Use `"break_strategy": "standard"` and a `"break_duration"` (seconds per break, for example `120`) in the station
+config. With `"break_strategy": "end"` every break plays after the show instead. To see how many of your items
+carry chapters, run `tools/plex_chapters_report.py`.
+
