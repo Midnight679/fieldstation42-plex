@@ -87,6 +87,7 @@ class PlayerState(Enum):
     EXIT_COMMAND = 5
     PLAY_FILE = 6
     PARENTAL_CONTROLS = 7
+    STANDBY = 8
 
 
 class PlayerOutcome:

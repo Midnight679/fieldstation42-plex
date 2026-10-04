@@ -78,6 +78,11 @@ def input_check():
                 case "mpv_command":
                     action = q_message.get("action", "")
                     return PlayerOutcome(PlayerState.SUCCESS, f"mpv_command:{action}")
+                case "standby":
+                    return PlayerOutcome(PlayerState.STANDBY)
+                case "wake":
+                    # only meaningful in standby; anywhere else it is ignored like any non-interrupting command
+                    return PlayerOutcome(PlayerState.SUCCESS, "wake")
                 case "parental_digit":
                     digit = str(q_message.get("digit", ""))
                     return PlayerOutcome(PlayerState.SUCCESS, f"parental_digit:{digit}")
@@ -330,6 +335,29 @@ def main_loop(transition_fn, shutdown_queue=None, api_proc=None, schedule_lock=N
                 # set skip play so outcome isn't overwritten
                 # and the channel change can be processed next loop
                 skip_play = True
+        elif player_state.status == PlayerState.STANDBY:
+            stuck_timer = 0
+            # Stop everything that uses the network or the media server, then wait. A wake command resumes the
+            # channel that was on; a channel change tunes to that channel.
+            logger.info("Going into standby: playback stopped until a wake command or a channel change")
+            player.stop_player()
+            update_status_socket("standby", channel_conf["network_name"], channel_conf["channel_number"], "Standby")
+            while True:
+                if schedule_agent:
+                    schedule_agent.tick()
+                time.sleep(0.5)
+                response = input_check()
+                if response is None:
+                    continue
+                if response.status == PlayerState.EXIT_COMMAND:
+                    signal_handler(None, None)
+                elif response.status == PlayerState.CHANNEL_CHANGE:
+                    player_state = response
+                    skip_play = True
+                    break
+                elif response.status == PlayerState.SUCCESS and response.payload == "wake":
+                    logger.info("Waking from standby")
+                    break
         elif player_state.status == PlayerState.SUCCESS:
             stuck_timer = 0
         elif player_state.status == PlayerState.EXIT_COMMAND:

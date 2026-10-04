@@ -229,6 +229,28 @@ async def player_stop(request: Request):
     return {"status": "stopped"}
 
 
+@router.get("/commands/standby")
+@router.post("/commands/standby")
+async def player_standby(request: Request):
+    """Stop playback and release the media server and the network. The player keeps running; use /commands/wake to resume."""
+    command_queue = request.app.state.player_command_queue
+    if not command_queue:
+        raise HTTPException(status_code=503, detail="Player command queue is not connected.")
+    command_queue.put({"command": "standby"})
+    return {"status": "standby"}
+
+
+@router.get("/commands/wake")
+@router.post("/commands/wake")
+async def player_wake(request: Request):
+    """Resume the channel that was on before standby (a channel change also wakes the player)."""
+    command_queue = request.app.state.player_command_queue
+    if not command_queue:
+        raise HTTPException(status_code=503, detail="Player command queue is not connected.")
+    command_queue.put({"command": "wake"})
+    return {"status": "wake"}
+
+
 async def _queue_mpv_command(request: Request, action: str):
     command_queue = request.app.state.player_command_queue
     if not command_queue:

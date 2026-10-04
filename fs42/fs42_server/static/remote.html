@@ -13,6 +13,10 @@
 <body>
     <script src="/static/common.js"></script>
     <script src="/static/fs42_client.js"></script>
+    <style>
+        .power-btn.is-standby { background: linear-gradient(145deg, #1f7a1f, #145214); color: #ccffcc; }
+        .power-btn.is-standby:hover { background: linear-gradient(145deg, #269026, #1a661a); }
+    </style>
     <script>
         // Initialize theme
         document.addEventListener('DOMContentLoaded', function () {
@@ -22,7 +26,7 @@
     <div class="remote-container">
         <div class="remote-header">
             <div class="remote-brand">FieldStation42</div>
-            <button class="remote-btn power-btn" data-key="power">STOP</button>
+            <button class="remote-btn power-btn" id="power-btn" data-key="power" title="Standby: stop playing and free the network. Press again to wake.">STANDBY</button>
         </div>
         
         <div class="remote-screen" id="remote-display">
@@ -108,6 +112,10 @@
         // PIN instead of changing channel (same rule as fs42/pi/remote_controller.py).
         let awaitingPin = false;
         let pinDigitsEntered = 0;
+        // True while the player is in standby (stopped playing, network released); the power button then wakes it.
+        let inStandby = false;
+        // After a press, ignore the player's old status for a moment so the button does not flicker back.
+        let standbyHoldUntil = 0;
 
         const numberPad = document.getElementById('number-pad');
         const navPad = document.getElementById('nav-pad');
@@ -137,12 +145,29 @@
             if (awaitingPin) {
                 return pinDigitsEntered > 0 ? '•'.repeat(pinDigitsEntered) : 'ENTER PIN';
             }
+            if (inStandby) {
+                return 'STANDBY';
+            }
             return `CH ${currentChannel}`;
+        }
+
+        // The power button puts the player to sleep, and wakes it again while it sleeps.
+        function setStandby(on, fromPress = false) {
+            if (fromPress) {
+                standbyHoldUntil = Date.now() + 3000;
+            } else if (Date.now() < standbyHoldUntil) {
+                return;
+            }
+            inStandby = on;
+            const btn = document.getElementById('power-btn');
+            btn.textContent = on ? 'WAKE' : 'STANDBY';
+            btn.classList.toggle('is-standby', on);
         }
 
         function updateNowPlayingFromStatus(status) {
             awaitingPin = !!status.awaiting_pin;
             pinDigitsEntered = status.pin_digits_entered || 0;
+            setStandby(status.status === 'standby');
 
             if (infoMode === 'playing') {
                 if (status.status === 'playing') {
@@ -160,6 +185,14 @@
                         if (!isInputtingChannel && !isShowingVolume) {
                             display.textContent = idleDisplayText();
                         }
+                    }
+                } else if (status.status === 'standby') {
+                    nowPlayingNetwork.textContent = 'Standby';
+                    nowPlayingStatus.textContent = 'Press WAKE or pick a channel';
+                    nowPlayingTitle.textContent = '';
+                    if (!isInputtingChannel && !isShowingVolume) {
+                        // still reporting standby just after a wake press: the player is on its way back
+                        display.textContent = inStandby ? 'STANDBY' : 'WAKING';
                     }
                 } else if (status.status === 'stopped') {
                     nowPlayingNetwork.textContent = 'Stopped';
@@ -437,11 +470,19 @@
             switch(key) {
                 case 'power':
                     try {
-                        await window.fs42Api.get('player/commands/stop');
-                        display.textContent = 'STOPPING';
-                        console.log('Player stop command sent');
+                        if (inStandby) {
+                            await window.fs42Api.get('player/commands/wake');
+                            display.textContent = 'WAKING';
+                            console.log('Player wake command sent');
+                            setStandby(false, true);
+                        } else {
+                            await window.fs42Api.get('player/commands/standby');
+                            display.textContent = 'STANDBY';
+                            console.log('Player standby command sent');
+                            setStandby(true, true);
+                        }
                     } catch (error) {
-                        console.error('Power/stop command failed:', error);
+                        console.error('Power/standby command failed:', error);
                         display.textContent = 'ERROR';
                     }
                     break;
