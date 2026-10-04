@@ -12,7 +12,7 @@ import logging
 import time
 from python_mpv_jsonipc import MPV
 from fs42.plex_source import is_plex_path, playback_headers, resolve_for_playback
-from fs42.live_streams import first_live_stream, mark_failed, priority_stream_changed
+from fs42.live_streams import first_live_stream, mark_failed, priority_stream_changed, stream_still_listed
 from fs42.block_plan import BlockPlanEntry
 
 from fs42.guide_tk import guide_channel_runner, GuideCommands
@@ -1215,6 +1215,10 @@ class StationPlayer:
                             if priority_stream_changed(self.station_config, entry.path):
                                 self._l.info("A priority stream is live: switching to it")
                                 return PlayerOutcome(PlayerState.SUCCESS)
+                            if not stream_still_listed(self.station_config, entry.path):
+                                self._l.info("The stream is no longer on the live list, moving on")
+                                keep_waiting = False
+                                continue
 
                         if time_remaining <= 0:
                             if self.web_process:

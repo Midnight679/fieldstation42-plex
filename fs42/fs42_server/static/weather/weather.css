@@ -27,10 +27,11 @@ body {
 
 /* ---- faded background scenes (two layers cross-fade) ---- */
 #bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
-.bg-layer { position: absolute; inset: -4%; background-size: cover; background-position: center; opacity: 0;
-  transition: opacity 5s ease; animation: drift 70s ease-in-out infinite alternate; }
+/* nothing here may animate all the time: on a small player the page is drawn by the CPU, and a moving full-screen layer
+   forces a full redraw every frame, which makes the ticker stutter */
+.bg-layer { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0;
+  transition: opacity 1.5s ease; }
 .bg-layer.show { opacity: 0.55; }
-@keyframes drift { from { transform: scale(1.0) translateX(-1.2%); } to { transform: scale(1.08) translateX(1.2%); } }
 #bg::after { content: ''; position: absolute; inset: 0;
   background: linear-gradient(180deg, rgba(6, 28, 90, 0.35) 0%, rgba(6, 20, 70, 0.55) 100%); }
 #topbar, #screens, #bottombar { position: relative; z-index: 1; }
@@ -102,8 +103,8 @@ body {
 }
 #place { font-size: 1.7rem; font-weight: 800; white-space: nowrap; color: var(--gold); }
 #ticker { flex: 1; overflow: hidden; white-space: nowrap; position: relative; height: 2.2rem; }
-#ticker-text { position: absolute; font-size: 1.5rem; padding-left: 100%; animation: scroll 60s linear infinite; }
-@keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+#ticker-text { position: absolute; font-size: 1.5rem; padding-left: 100%; animation: scroll 60s linear infinite; will-change: transform; }
+@keyframes scroll { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-100%, 0, 0); } }
 #dots { display: flex; gap: 0.6rem; }
 #dots i { width: 0.9rem; height: 0.9rem; border-radius: 50%; background: rgba(150, 195, 255, 0.35); display: block; transition: background 0.4s; }
 #dots i.on { background: var(--gold); }

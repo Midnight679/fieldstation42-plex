@@ -24,16 +24,15 @@ body { width: 100vw; height: 100vh; overflow: hidden; background: var(--navy-dee
     linear-gradient(180deg, var(--navy-top) 0%, var(--navy-mid) 55%, var(--navy-deep) 100%);
 }
 
-/* slow moving light bands behind everything */
+/* soft light bands behind everything (static: see the note in weather.css about constant animation) */
 #bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
 #bg::before, #bg::after {
   content: ''; position: absolute; width: 140%; height: 38%; left: -20%;
   background: linear-gradient(90deg, rgba(255,255,255,0), rgba(120,170,255,0.13), rgba(255,255,255,0));
-  transform: rotate(-8deg); animation: sweep 38s ease-in-out infinite alternate;
+  transform: rotate(-8deg);
 }
 #bg::before { top: 18%; }
-#bg::after { top: 56%; animation-duration: 52s; animation-direction: alternate-reverse; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(210,38,46,0.10), rgba(255,255,255,0)); }
-@keyframes sweep { from { transform: translateX(-8%) rotate(-8deg); } to { transform: translateX(8%) rotate(-8deg); } }
+#bg::after { top: 56%; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(210,38,46,0.10), rgba(255,255,255,0)); }
 #topbar, #screens, #bottombar { position: relative; z-index: 1; }
 
 /* ---- top bar ---- */
@@ -85,6 +84,6 @@ body { width: 100vw; height: 100vh; overflow: hidden; background: var(--navy-dee
 #wx:empty { display: none; }
 #wx small { font-weight: 400; color: var(--muted); font-size: 1.05rem; margin-left: 0.8rem; }
 #ticker { flex: 1; overflow: hidden; display: flex; align-items: center; position: relative; }
-#ticker-text { display: inline-block; white-space: nowrap; font-size: 1.55rem; font-weight: 600; padding-left: 100%; animation: tick linear infinite; }
+#ticker-text { display: inline-block; white-space: nowrap; font-size: 1.55rem; font-weight: 600; padding-left: 100%; animation: tick linear infinite; will-change: transform; }
 #ticker-text .tag { color: var(--gold); font-weight: 800; margin: 0 0.9rem 0 2.2rem; letter-spacing: 0.08em; }
-@keyframes tick { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+@keyframes tick { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-100%, 0, 0); } }

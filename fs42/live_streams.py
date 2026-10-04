@@ -77,6 +77,30 @@ def first_live_stream(station_conf):
     return None
 
 
+def stream_still_listed(station_conf, current_url):
+    """False once the streams file has been rewritten without the stream that is playing.
+
+    A stream that is still up is not the same as a stream that is still wanted: the picker drops a feed from the list when
+    it is no longer a live broadcast it should show, and the player should leave it then. An unreadable file means "unknown"
+    and keeps the stream; a stream named in the station config itself is always kept.
+    """
+    path = station_conf.get("streams_file")
+    if not path:
+        return True
+    if current_url in {s.get("url") for s in station_conf.get("streams", [])}:
+        return True
+    full = path if os.path.isabs(path) else os.path.join(PROJECT_ROOT, path)
+    try:
+        with open(full, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return True
+    streams = data.get("streams") if isinstance(data, dict) else data
+    if not isinstance(streams, list):
+        return True
+    return any(isinstance(s, dict) and s.get("url") == current_url for s in streams)
+
+
 def priority_stream_changed(station_conf, current_url):
     """True if the streams file now starts with a priority stream that is not the one playing."""
     path = station_conf.get("streams_file")
