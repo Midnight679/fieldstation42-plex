@@ -12,6 +12,7 @@ import logging
 import time
 from python_mpv_jsonipc import MPV
 from fs42.plex_source import is_plex_path, playback_headers, resolve_for_playback
+from fs42.live_streams import mark_failed, priority_stream_changed
 
 from fs42.guide_tk import guide_channel_runner, GuideCommands
 from fs42.autobump_agent import AutoBumpAgent
@@ -1109,6 +1110,10 @@ class StationPlayer:
                     target_end_time = datetime.datetime.now() + datetime.timedelta(seconds=(entry.duration - initial_skip))
                     self._l.info(f"Target end time: {target_end_time.strftime('%H:%M:%S.%f')[:-3]}")
                     stream_down_message = (self.station_config.get("stream_down_message", "TECHNICAL DIFFICULTIES") if self.station_config else "TECHNICAL DIFFICULTIES")
+                    skip_after = (self.station_config or {}).get("stream_down_skip_seconds", 30)
+                    stream_list_file = (self.station_config or {}).get("streams_file")
+                    stream_down_since = None
+                    last_list_check = time.time()
 
                     # this is our main event loop
                     keep_waiting = True
@@ -1155,6 +1160,27 @@ class StationPlayer:
                                 except Exception:
                                     pass
                                 last_osd_refresh = _now
+
+                        # a stream that stays down is not worth waiting out: move on to the next one
+                        if is_stream and stream_is_down:
+                            if stream_down_since is None:
+                                stream_down_since = time.time()
+                            elif skip_after and time.time() - stream_down_since >= skip_after:
+                                self._l.warning(f"Stream down for {skip_after}s, moving on: {entry.path}")
+                                mark_failed(entry.path)
+                                try:
+                                    self.mpv.command("show-text", "", 1)
+                                except Exception:
+                                    pass
+                                keep_waiting = False
+                                continue
+
+                        # with a live stream list, switch as soon as a priority stream (e.g. a launch) appears
+                        if is_stream and stream_list_file and time.time() - last_list_check >= 30:
+                            last_list_check = time.time()
+                            if priority_stream_changed(self.station_config, entry.path):
+                                self._l.info("A priority stream is live: switching to it")
+                                return PlayerOutcome(PlayerState.SUCCESS)
 
                         if time_remaining <= 0:
                             if self.web_process:

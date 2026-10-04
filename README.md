@@ -29,6 +29,8 @@ A live [weather channel](docs/WEATHER.md) page is included, in the style of an e
 
 The grid guide can show a picture beside each promo message; see [guide promos](docs/GUIDE_PROMOS.md).
 
+A live-stream channel that skips dead feeds and jumps to a priority feed (a rocket launch, say) is described in [live streams](docs/LIVE_STREAMS.md).
+
 
 ## Quick Start
 

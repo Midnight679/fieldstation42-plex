@@ -5,6 +5,7 @@ from fs42.station_manager import StationManager
 from fs42.liquid_blocks import LiquidBlock, BlockPlanEntry
 from fs42.catalog import ShowCatalog
 from fs42.sequence_api import SequenceAPI
+from fs42.live_streams import load_streams
 from fs42.liquid_api import LiquidAPI
 
 
@@ -169,7 +170,7 @@ class LiquidManager(object):
         # get the station conf
 
         # get an entry
-        conf_streams = station_conf["streams"]
+        conf_streams = load_streams(station_conf)
         block_plan = []
         for stream in conf_streams:
             bpe = BlockPlanEntry(stream["url"], 0, stream["duration"], is_stream=True, content_type="stream", media_type=stream.get("media_type", "video"))

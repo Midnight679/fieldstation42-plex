@@ -436,6 +436,18 @@
           "type": "boolean",
           "description": "Require the global parental controls PIN before playing this station"
         },
+        "streams_file": {
+          "type": "string",
+          "description": "Streaming networks: a JSON file with the stream list ({\"streams\": [...]}), read each time the player needs it so a helper can keep it up to date. Falls back to `streams` if it cannot be read."
+        },
+        "stream_down_skip_seconds": {
+          "type": "integer",
+          "description": "Streaming networks: seconds a stream may stay down before the player moves on to the next one (default 30, 0 waits out the full duration)"
+        },
+        "stream_down_message": {
+          "type": "string",
+          "description": "Streaming networks: text shown while a stream is down"
+        },
         "streams": {
           "type": "array",
           "description": "Stream configurations for streaming networks",
@@ -452,6 +464,9 @@
               },
               "title": {
                 "type": "string"
+              },
+              "priority": {
+                "type": "boolean"
               }
             }
           }

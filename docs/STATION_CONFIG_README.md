@@ -288,6 +288,12 @@ Each stream object contains:
 }
 ```
 
+| Property | Type | Description |
+|----------|------|-------------|
+| `streams_file` | string | A JSON file holding the stream list, re-read each time the player needs it (see [LIVE_STREAMS.md](LIVE_STREAMS.md)) |
+| `stream_down_skip_seconds` | integer | Seconds a stream may stay down before the player moves on to the next (default 30; 0 waits out the duration) |
+| `stream_down_message` | string | Text shown while a stream is down (default `TECHNICAL DIFFICULTIES`) |
+
 ## Day Scheduling
 
 **Standard networks require all 7 days to be defined** (even if they're empty `{}`). Days are specified using lowercase full names:
