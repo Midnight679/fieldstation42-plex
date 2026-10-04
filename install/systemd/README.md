@@ -145,6 +145,24 @@ These are the things that bite on a Pi 4 running a bare-bones desktop (see the s
   printf 'audio-device=alsa/hdmi:CARD=vc4hdmi0,DEV=0\naudio-channels=stereo\n' > ~/.config/mpv/mpv.conf
   ```
 
+- **Point the default sound device at HDMI too (for web channels).** The guide and weather pages are shown by a
+  browser engine, which plays sound through the system's *default* ALSA device (often the headphone jack), not through
+  mpv's setting above. If `speaker-test -D default -c 2 -t sine -l 1` is silent on the TV, create `~/.asoundrc`
+  and restart with `systemctl --user restart fs42`:
+
+  ```bash
+  cat > ~/.asoundrc <<'EOF'
+  pcm.!default {
+    type plug
+    slave.pcm "hdmi:CARD=vc4hdmi0,DEV=0"
+  }
+  ctl.!default {
+    type hw
+    card vc4hdmi0
+  }
+  EOF
+  ```
+
 - **Do not enable `fs42-osd` unless the desktop has a compositor.** The on-screen display is a transparent
   window. Without a compositor it draws as an opaque black box over the picture, so the sound plays and the
   video disappears when the overlay pops up. Say N to it in `install_services.sh`.
