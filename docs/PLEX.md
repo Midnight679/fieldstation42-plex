@@ -184,3 +184,12 @@ season and episode, from season 1 episode 1, and the sequence loops when it reac
 Use one tag per show (a tag that mixes several shows is ordered by title, not by show). Episodes the player cannot
 decode are left out when `playable_only` is on, so the sequence skips over them. The sequence is rebuilt from the
 catalog, so rebuild the catalog after changing Plex content.
+
+## A file that will not play
+
+A damaged file (one Plex could not analyse, an incomplete download) cannot start, and the player used to retry it every
+second with a black screen. Now a file that fails to start twice in a row is skipped for 30 minutes: the channel shows its
+stand-by picture for the time that file was scheduled, then carries on with the next entry (commercials, the next show).
+After 30 minutes it gets another try, so a file that was only unreachable comes back by itself. The log says
+`Giving up on <file>` when this happens. To find damaged files, look for items in Plex that have no video or audio details
+(Analyze in Plex's menu shows whether it can read them), and replace the file.
