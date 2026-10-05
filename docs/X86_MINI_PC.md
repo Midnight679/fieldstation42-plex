@@ -92,7 +92,11 @@ mkdir -p ~/.config/mpv
 printf 'hwdec=auto-safe\naudio-device=alsa/hdmi:CARD=PCH,DEV=3\n' > ~/.config/mpv/mpv.conf
 ```
 
-The audio device name varies by machine; use one from the list for your HDMI output. To confirm hardware
+The audio device name varies by machine; use one from the list for your HDMI output. Newer Intel machines use the
+"SOF" sound driver (the card is called something like `sofhdadsp`); for those the `hdmi:` names do not exist and mpv
+plays no sound. Use `plughw:` instead, for example `audio-device=alsa/plughw:CARD=sofhdadsp,DEV=3` (the output that has a
+screen attached shows the screen's name in `aplay -l`), and point the system default at the same device in `~/.asoundrc`
+so the web channels have sound too (the provisioner does both). To confirm hardware
 decoding is active while a channel plays, ask mpv:
 
 ```bash
