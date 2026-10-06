@@ -13,6 +13,7 @@ import time
 from python_mpv_jsonipc import MPV
 from fs42.plex_source import is_plex_path, playback_headers, resolve_for_playback
 from fs42.live_streams import first_live_stream, mark_failed, priority_stream_changed, stream_still_listed
+from fs42 import bad_files
 from fs42.block_plan import BlockPlanEntry
 
 from fs42.guide_tk import guide_channel_runner, GuideCommands
@@ -1096,6 +1097,29 @@ class StationPlayer:
         
         return self._play_from_point(play_point)
 
+    def _wait_out_unplayable(self, entry, initial_skip):
+        """Put up the channel's stand-by picture for the rest of an entry that cannot be played.
+
+        Returns the viewer's command if they change channel meanwhile, else None once the entry's time is up.
+        """
+        remaining = max((entry.duration or 0) - initial_skip, 1)
+        stand_by = (self.station_config or {}).get(
+            "standby_image", StationManager().server_conf.get("standby_image", "runtime/standby.png")
+        )
+        self.play_file(stand_by)
+        end_time = time.time() + remaining
+        while time.time() < end_time:
+            time.sleep(0.05)
+            response = self.input_check_fn()
+            if response:
+                if self.handle_runtime_command_outcome(response):
+                    continue
+                if self.is_non_interrupting(response):
+                    continue
+                if response.status == PlayerState.CHANNEL_CHANGE:
+                    return response
+        return None
+
     def _play_from_point(self, play_point: PlayPoint):
         # Fade to black duration before commercial breaks (in seconds)
         FADE_DURATION = 0.5
@@ -1123,6 +1147,14 @@ class StationPlayer:
                 title = play_point.block_title
                 content_type = getattr(entry, 'content_type', 'feature')  # Get content_type from entry, default to 'feature'
                 media_type = getattr(entry, 'media_type', 'video')  # Get media_type from entry, default to 'video'
+                if not is_stream and entry.duration and bad_files.is_bad(entry.path):
+                    # a file that would not start: show the stand-by picture for the time it was meant to run, then go on
+                    self._l.warning(f"Skipping a file that would not start: {entry.path}")
+                    response = self._wait_out_unplayable(entry, initial_skip)
+                    if response:
+                        return response
+                    initial_skip = 0
+                    continue
                 worked = self.play_file(entry.path, file_duration=entry.duration, offset_seconds=total_skip, is_stream=is_stream, title=title, content_type=content_type, media_type=media_type)
                 if self._pending_response:
                     response = self._pending_response
@@ -1137,7 +1169,11 @@ class StationPlayer:
                         last_osd_refresh = time.time()
                         self._show_stream_down()
                     else:
+                        # after a couple of failed starts the file is skipped (see above) instead of retried for ever
+                        bad_files.record_failure(entry.path)
                         return PlayerOutcome(PlayerState.FAILED)
+                elif not is_stream:
+                    bad_files.record_success(entry.path)
                 # Seek now happens inside play_file() before overlay is shown
 
                 # Detect if this video is being clipped (stopping before natural end)
