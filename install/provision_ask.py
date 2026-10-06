@@ -26,6 +26,7 @@ class Answers:
         self.path = path
         self.values = {}
         self.reconfigure = False
+        self.persist = True          # a dry run turns this off: a preview must not leave answers behind for the real run
         if path and os.path.exists(path):
             self._load(path)
 
@@ -53,7 +54,7 @@ class Answers:
         self.save()
 
     def save(self):
-        if not self.path:
+        if not self.path or not self.persist:
             return
         os.makedirs(os.path.dirname(os.path.abspath(self.path)), exist_ok=True)
         fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)

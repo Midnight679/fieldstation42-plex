@@ -43,6 +43,8 @@ class Context:
         self.answers = answers
         self.asker = asker
         self.dry_run = dry_run
+        if dry_run:
+            answers.persist = False          # a preview leaves nothing behind, not even the answers file
         self.root = root                     # a scratch folder standing in for "/" (dry runs only)
         self.user = user or os.environ.get("USER") or os.getlogin()
         self.home = home or os.path.expanduser("~")

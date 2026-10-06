@@ -127,8 +127,12 @@ def read_sound_devices(root="/"):
             dev_n = int(dev.group(1)) if dev else int(pcm[3:-1])
             pcm_name = name.group(1).strip() if name else pcm
             is_hdmi = "hdmi" in f"{card_id} {card_name} {pcm_name}".lower()
+            # alsa-lib only defines its named "hdmi:" outputs for some drivers (the Pi's vc4 and Intel's classic HDA); on
+            # others, such as the newer Intel SOF cards, "hdmi:CARD=..." does not exist and mpv plays nothing. "plughw:" works anywhere.
+            driver = card_name.split(" - ")[0].strip().lower()
+            named_hdmi = is_hdmi and (card_id.startswith("vc4hdmi") or driver == "hda-intel")
             devices.append({"card": card_id, "card_name": card_name, "device": dev_n, "name": pcm_name,
-                            "alsa": f"{'hdmi' if is_hdmi else 'plughw'}:CARD={card_id},DEV={dev_n}", "is_hdmi": is_hdmi})
+                            "alsa": f"{'hdmi' if named_hdmi else 'plughw'}:CARD={card_id},DEV={dev_n}", "is_hdmi": is_hdmi})
     return devices
 
 
@@ -161,5 +165,7 @@ def current_timezone(root="/"):
 
 
 def valid_timezone(name, root="/"):
-    return bool(re.fullmatch(r"[A-Za-z0-9_+\-]+(/[A-Za-z0-9_+\-]+){0,2}", name or "")) and \
-        os.path.isfile(_p(root, f"/usr/share/zoneinfo/{name}"))
+    if not re.fullmatch(r"[A-Za-z0-9_+\-]+(/[A-Za-z0-9_+\-]+){0,2}", name or ""):
+        return False
+    # a preview run points root at an empty folder, so the machine's own timezone database counts too
+    return any(os.path.isfile(_p(r, f"/usr/share/zoneinfo/{name}")) for r in {root, "/"})
